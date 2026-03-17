@@ -1,0 +1,5 @@
+{
+  "discovery_url": "opc.tcp://localhost:4840",
+  "connections": [],
+  "subscriptions": []
+}

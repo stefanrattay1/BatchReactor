@@ -1,0 +1,160 @@
+{
+  "nodes": [
+    {
+      "id": "temperature",
+      "name": "Temperature_K",
+      "node_id": "ns=2;s=Temperature_K",
+      "source": "local",
+      "category": "sensor",
+      "data_type": "Double",
+      "writable": false,
+      "current_value": 298.15,
+      "last_updated": 1773741403.4567099,
+      "metadata": {}
+    },
+    {
+      "id": "pressure",
+      "name": "Pressure_bar",
+      "node_id": "ns=2;s=Pressure_bar",
+      "source": "local",
+      "category": "sensor",
+      "data_type": "Double",
+      "writable": false,
+      "current_value": 0.5,
+      "last_updated": 1773741403.4567404,
+      "metadata": {}
+    },
+    {
+      "id": "conversion",
+      "name": "Conversion",
+      "node_id": "ns=2;s=Conversion",
+      "source": "local",
+      "category": "sensor",
+      "data_type": "Double",
+      "writable": false,
+      "current_value": 0.0,
+      "last_updated": 1773741403.4567592,
+      "metadata": {}
+    },
+    {
+      "id": "viscosity",
+      "name": "Viscosity_Pas",
+      "node_id": "ns=2;s=Viscosity_Pas",
+      "source": "local",
+      "category": "sensor",
+      "data_type": "Double",
+      "writable": false,
+      "current_value": 0.5,
+      "last_updated": 1773741403.4567897,
+      "metadata": {}
+    },
+    {
+      "id": "mass_total",
+      "name": "MassTotal_kg",
+      "node_id": "ns=2;s=MassTotal_kg",
+      "source": "local",
+      "category": "sensor",
+      "data_type": "Double",
+      "writable": false,
+      "current_value": 0,
+      "last_updated": 1773741403.4568088,
+      "metadata": {}
+    },
+    {
+      "id": "jacket_setpoint",
+      "name": "JacketSetpoint_K",
+      "node_id": "ns=2;s=JacketSetpoint_K",
+      "source": "local",
+      "category": "actuator",
+      "data_type": "Double",
+      "writable": true,
+      "current_value": 298.15,
+      "last_updated": 0.0,
+      "metadata": {}
+    },
+    {
+      "id": "agitator_speed",
+      "name": "AgitatorSpeed_rpm",
+      "node_id": "ns=2;s=AgitatorSpeed_rpm",
+      "source": "local",
+      "category": "actuator",
+      "data_type": "Double",
+      "writable": true,
+      "current_value": null,
+      "last_updated": 0.0,
+      "metadata": {}
+    },
+    {
+      "id": "feed_valve",
+      "name": "FeedValve_pct",
+      "node_id": "ns=2;s=FeedValve_pct",
+      "source": "local",
+      "category": "actuator",
+      "data_type": "Double",
+      "writable": true,
+      "current_value": null,
+      "last_updated": 0.0,
+      "metadata": {}
+    },
+    {
+      "id": "fsm_state",
+      "name": "FSM_State",
+      "node_id": "ns=2;s=FSM_State",
+      "source": "local",
+      "category": "status",
+      "data_type": "Int32",
+      "writable": false,
+      "current_value": 0,
+      "last_updated": 1773741403.4568255,
+      "metadata": {}
+    },
+    {
+      "id": "fsm_state_name",
+      "name": "FSM_StateName",
+      "node_id": "ns=2;s=FSM_StateName",
+      "source": "local",
+      "category": "status",
+      "data_type": "String",
+      "writable": false,
+      "current_value": "IDLE",
+      "last_updated": 1773741403.4568415,
+      "metadata": {}
+    },
+    {
+      "id": "batch_elapsed",
+      "name": "BatchElapsed_s",
+      "node_id": "ns=2;s=BatchElapsed_s",
+      "source": "local",
+      "category": "status",
+      "data_type": "Double",
+      "writable": false,
+      "current_value": 0.0,
+      "last_updated": 1773741403.456858,
+      "metadata": {}
+    },
+    {
+      "id": "recipe_name",
+      "name": "RecipeName",
+      "node_id": "ns=2;s=RecipeName",
+      "source": "local",
+      "category": "recipe",
+      "data_type": "String",
+      "writable": true,
+      "current_value": "default",
+      "last_updated": 0.0,
+      "metadata": {}
+    },
+    {
+      "id": "recipe_command",
+      "name": "Command",
+      "node_id": "ns=2;s=Command",
+      "source": "local",
+      "category": "recipe",
+      "data_type": "String",
+      "writable": true,
+      "current_value": "STOP",
+      "last_updated": 0.0,
+      "metadata": {}
+    }
+  ]
+}

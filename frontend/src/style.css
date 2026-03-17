@@ -1,0 +1,167 @@
+:root {
+    /* Yokogawa Centum VP — Charcoal Gray Palette */
+    --bg-app: #1c1c1c;
+    --bg-panel: #252525;
+    --bg-card: #252525;
+    --bg-input: #181818;
+    --bg-data: #161616;      /* recessed data-box background */
+
+    --border-subtle: #3a3a3a;
+    --border-focus: #00b4b4;
+
+    --text-primary: #e8e8e8;
+    --text-secondary: #a0a0a0;
+    --text-muted: #606060;
+
+    /* Accents — Yokogawa teal as primary */
+    --accent-primary: #00b4b4;
+    --accent-success: #22c55e;
+    --accent-warning: #f59e0b;
+    --accent-danger: #ef4444;
+    --accent-info: #00cccc;
+
+    /* Sensor Colors */
+    --sensor-temp: #ff7070;
+    --sensor-pressure: #a855f7;
+    --sensor-level: #00b4b4;
+    --sensor-flow: #22c55e;
+    --sensor-speed: #f59e0b;
+
+    /* ISA-101 DCS Status Colors */
+    --dcs-normal: #22c55e;
+    --dcs-alarm: #ef4444;
+    --dcs-warning: #f59e0b;
+    --dcs-maintenance: #f97316;
+    --dcs-off: #4a4a4a;
+    --dcs-transition: #00b4b4;
+
+    /* Equipment Block */
+    --equip-bg: #202020;
+    --equip-border: #3a3a3a;
+
+    /* Typography */
+    --font-mono: 'JetBrains Mono', 'Fira Code', monospace;
+    --font-sans: 'Inter', system-ui, -apple-system, sans-serif;
+}
+
+* { margin: 0; padding: 0; box-sizing: border-box; }
+
+body {
+    font-family: var(--font-sans);
+    background: var(--bg-app);
+    color: var(--text-primary);
+    min-height: 100vh;
+    overflow-x: hidden;
+    -webkit-font-smoothing: antialiased;
+}
+
+/* Utilities */
+.card-base {
+    background: var(--bg-card);
+    border: 1px solid var(--border-subtle);
+    border-radius: 2px;
+    padding: 1rem;
+}
+
+.text-xs { font-size: 0.75rem; }
+.text-sm { font-size: 0.875rem; }
+.text-base { font-size: 1rem; }
+.text-lg { font-size: 1.125rem; }
+.text-xl { font-size: 1.25rem; }
+
+.font-bold { font-weight: 700; }
+.font-semibold { font-weight: 600; }
+.font-medium { font-weight: 500; }
+
+.flex-center { display: flex; align-items: center; justify-content: center; }
+.flex-between { display: flex; align-items: center; justify-content: space-between; }
+
+/* Scrollbar */
+::-webkit-scrollbar { width: 6px; height: 6px; }
+::-webkit-scrollbar-track { background: var(--bg-app); }
+::-webkit-scrollbar-thumb { background: #3a3a3a; border-radius: 1px; }
+::-webkit-scrollbar-thumb:hover { background: #505050; }
+
+/* Vue Flow Dark Theme Overrides — Yokogawa palette */
+.vue-flow { background: var(--bg-app) !important; }
+.vue-flow__node { background: none !important; border: none !important; padding: 0 !important; box-shadow: none !important; }
+.vue-flow__node.selected { box-shadow: 0 0 0 1px #6b7280 !important; border-radius: 3px; }
+.vue-flow__edge-path { stroke: var(--text-muted); }
+.vue-flow__handle { width: 6px; height: 6px; background: var(--equip-border); border: 1px solid #505050; border-radius: 1px; }
+.vue-flow__handle:hover { background: #9ca3af; }
+.vue-flow__controls { background: var(--bg-panel) !important; border: 1px solid var(--border-subtle) !important; border-radius: 2px !important; }
+.vue-flow__controls-button { background: var(--bg-panel) !important; fill: var(--text-secondary) !important; border-bottom-color: var(--border-subtle) !important; border-radius: 0 !important; }
+.vue-flow__controls-button:hover { background: #2f2f2f !important; fill: var(--text-primary) !important; }
+.vue-flow__minimap { background: var(--bg-panel) !important; border: 1px solid var(--border-subtle) !important; border-radius: 2px !important; }
+.vue-flow__minimap-mask { fill: rgba(28, 28, 28, 0.7) !important; }
+.vue-flow__minimap-node { fill: #3a3a3a !important; }
+
+/* Compact DCS-style P&ID cards */
+.pid-node-card {
+    width: 96px;
+    background: var(--equip-bg);
+    border: 1px solid var(--equip-border);
+    border-left: 2px solid var(--equip-border);
+    border-radius: 2px;
+    padding: 5px 6px;
+}
+
+.pid-node-head {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    gap: 6px;
+    margin-bottom: 4px;
+}
+
+.pid-node-tag {
+    font-size: 0.5rem;
+    font-weight: 700;
+    color: var(--text-muted);
+    letter-spacing: 0.08em;
+    font-family: var(--font-mono);
+}
+
+.pid-node-name {
+    font-size: 0.52rem;
+    font-weight: 600;
+    color: var(--text-secondary);
+    letter-spacing: 0.04em;
+    line-height: 1.2;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+.pid-node-status {
+    width: 6px;
+    height: 6px;
+    border-radius: 1px;
+    flex-shrink: 0;
+}
+
+.pid-node-symbol {
+    width: 14px;
+    height: 14px;
+    color: var(--text-secondary);
+}
+
+.pid-node-value {
+    display: flex;
+    align-items: baseline;
+    gap: 3px;
+    margin-top: 3px;
+    font-family: var(--font-mono);
+}
+
+.pid-node-value-num {
+    font-size: 0.72rem;
+    font-weight: 700;
+    color: var(--text-primary);
+    line-height: 1;
+}
+
+.pid-node-value-unit {
+    font-size: 0.46rem;
+    color: var(--text-muted);
+}

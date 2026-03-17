@@ -1,0 +1,238 @@
+name: "Default Cure Process"
+
+metadata:
+  version: "1.0.0"
+  author: "stefan"
+  approved_by: "stefan"
+  approval_date: "2026-03-03"
+  change_log:
+    - "1.0.0 (2026-03-03): Initial ISA-88 nested format with EM mode integration"
+
+# ISA-88 Procedure hierarchy:
+#   Procedure  → Default Cure Process
+#   UnitProc   → REACTOR_R101
+#   Operations → PREPARATION | REACTION | DISCHARGE
+#   Phases     → 10 steps total
+
+unit_procedures:
+  - name: REACTOR_R101
+    operations:
+
+      # ================================================================
+      # OPERATION 1: PREPARATION
+      # Inertisierung, Harz-Dosierung, Haerter-Dosierung
+      # ================================================================
+      - name: PREPARATION
+        phases:
+
+          # Phase 1: Inertisieren
+          - name: INERT
+            duration: 60
+            profiles:
+              jacket_temp:
+                type: constant
+                value: 298.15  # 25 C
+              em_mode:EM-INERT: { value: inertisieren }
+              em_mode:EM-FILL:  { value: aus }
+              em_mode:EM-AGIT:  { value: aus }
+              em_mode:EM-TEMP:  { value: aus }
+              em_mode:EM-PRESS: { value: aus }
+              em_mode:EM-DRAIN: { value: aus }
+
+          # Phase 2: Harz dosieren
+          - name: CHARGE_COMPONENT_A
+            duration: 120
+            completion_guards:
+              - type: em_mode_active
+                em: EM-FILL
+                mode: dose_component_a
+            profiles:
+              feed_component_a:
+                type: constant
+                value: 0.5  # kg/s
+              feed_component_a_min_check:
+                type: constant
+                value: 0.05
+              feed_component_a_pump_speed_rpm:
+                type: constant
+                value: 1200
+              feed_line_level_max_pct:
+                type: constant
+                value: 95
+              feed_line_valve_required:
+                type: constant
+                value: 1
+              feed_line_pump_required:
+                type: constant
+                value: 1
+              feed_line_flow_sensor_required:
+                type: constant
+                value: 1
+              jacket_temp:
+                type: constant
+                value: 298.15  # 25 C
+              em_mode:EM-FILL:  { value: dose_component_a }
+              em_mode:EM-AGIT:  { value: ruehren }
+              em_mode:EM-TEMP:  { value: aus }
+              em_mode:EM-PRESS: { value: druckhalten }
+              em_mode:EM-INERT: { value: aus }
+              em_mode:EM-DRAIN: { value: aus }
+
+          # Phase 3: Haerter dosieren
+          - name: CHARGE_COMPONENT_B
+            duration: 60
+            completion_guards:
+              - type: em_mode_active
+                em: EM-FILL
+                mode: dose_component_b
+            profiles:
+              feed_component_b:
+                type: constant
+                value: 0.3  # kg/s (18 kg = stoichiometric for 60 kg component_a)
+              feed_component_b_min_check:
+                type: constant
+                value: 0.03
+              feed_component_b_pump_speed_rpm:
+                type: constant
+                value: 1050
+              feed_line_level_max_pct:
+                type: constant
+                value: 95
+              feed_line_valve_required:
+                type: constant
+                value: 1
+              feed_line_pump_required:
+                type: constant
+                value: 1
+              feed_line_flow_sensor_required:
+                type: constant
+                value: 1
+              jacket_temp:
+                type: constant
+                value: 298.15
+              em_mode:EM-FILL:  { value: dose_component_b }
+              em_mode:EM-AGIT:  { value: ruehren }
+              em_mode:EM-TEMP:  { value: aus }
+              em_mode:EM-PRESS: { value: druckhalten }
+              em_mode:EM-INERT: { value: aus }
+              em_mode:EM-DRAIN: { value: aus }
+
+      # ================================================================
+      # OPERATION 2: REACTION
+      # Aufheizen, Vorgelieren, Haerten
+      # ================================================================
+      - name: REACTION
+        phases:
+
+          # Phase 4: Aufheizen auf Vorgeliertemperatur
+          - name: HEAT_TO_SOAK
+            duration: 300
+            profiles:
+              jacket_temp:
+                type: linear_ramp
+                start: 298.15  # 25 C
+                end: 338.15    # 65 C
+              em_mode:EM-FILL:  { value: aus }
+              em_mode:EM-AGIT:  { value: ruehren }
+              em_mode:EM-TEMP:  { value: heizen }
+              em_mode:EM-PRESS: { value: druckhalten }
+              em_mode:EM-INERT: { value: aus }
+              em_mode:EM-DRAIN: { value: aus }
+
+          # Phase 5: Vorgelieren (Exothermie abfuehren)
+          - name: SOAK
+            duration: 900
+            profiles:
+              jacket_temp:
+                type: constant
+                value: 338.15  # 65 C
+              em_mode:EM-FILL:  { value: aus }
+              em_mode:EM-AGIT:  { value: ruehren }
+              em_mode:EM-TEMP:  { value: halten }
+              em_mode:EM-PRESS: { value: druckhalten }
+              em_mode:EM-INERT: { value: aus }
+              em_mode:EM-DRAIN: { value: aus }
+
+          # Phase 6: Aufheizen auf Haertetemperatur
+          - name: HEAT_TO_CURE
+            duration: 300
+            profiles:
+              jacket_temp:
+                type: linear_ramp
+                start: 338.15  # 65 C
+                end: 353.15    # 80 C
+              em_mode:EM-FILL:  { value: aus }
+              em_mode:EM-AGIT:  { value: ruehren }
+              em_mode:EM-TEMP:  { value: heizen }
+              em_mode:EM-PRESS: { value: druckhalten }
+              em_mode:EM-INERT: { value: aus }
+              em_mode:EM-DRAIN: { value: aus }
+
+          # Phase 7: Haertephase (Hauptumsatz)
+          - name: HOLD_CURE
+            duration: 2400
+            transitions:
+              - if: "conversion >= 0.9"
+                then: "DISCHARGE_PRODUCT"
+                else: "next"
+            profiles:
+              jacket_temp:
+                type: constant
+                value: 353.15  # 80 C
+              em_mode:EM-FILL:  { value: aus }
+              em_mode:EM-AGIT:  { value: ruehren }
+              em_mode:EM-TEMP:  { value: halten }
+              em_mode:EM-PRESS: { value: druckhalten }
+              em_mode:EM-INERT: { value: aus }
+              em_mode:EM-DRAIN: { value: aus }
+
+      # ================================================================
+      # OPERATION 3: DISCHARGE
+      # Abkuehlen, Entleeren, Sicherer Zustand
+      # ================================================================
+      - name: DISCHARGE
+        phases:
+
+          # Phase 8: Abkuehlen
+          - name: COOL_DOWN
+            duration: 600
+            profiles:
+              jacket_temp:
+                type: linear_ramp
+                start: 353.15  # 80 C
+                end: 303.15    # 30 C
+              em_mode:EM-FILL:  { value: aus }
+              em_mode:EM-AGIT:  { value: ruehren }
+              em_mode:EM-TEMP:  { value: kuehlen }
+              em_mode:EM-PRESS: { value: druckhalten }
+              em_mode:EM-INERT: { value: aus }
+              em_mode:EM-DRAIN: { value: aus }
+
+          # Phase 9: Entleeren
+          - name: DISCHARGE_PRODUCT
+            duration: 120
+            completion_guards:
+              - type: em_mode_active
+                em: EM-DRAIN
+                mode: entleeren
+            profiles:
+              jacket_temp:
+                type: constant
+                value: 303.15  # 30 C
+              em_mode:EM-DRAIN: { value: entleeren }
+              em_mode:EM-FILL:  { value: aus }
+              em_mode:EM-AGIT:  { value: aus }
+              em_mode:EM-TEMP:  { value: aus }
+              em_mode:EM-PRESS: { value: aus }
+              em_mode:EM-INERT: { value: aus }
+
+          # Phase 10: Sicherer Zustand
+          - name: SAFE_STATE
+            duration: 10
+            profiles:
+              em_mode:EM-FILL:  { value: aus }
+              em_mode:EM-AGIT:  { value: aus }
+              em_mode:EM-TEMP:  { value: aus }
+              em_mode:EM-PRESS: { value: aus }
+              em_mode:EM-DRAIN: { value: aus }
+              em_mode:EM-INERT: { value: aus }

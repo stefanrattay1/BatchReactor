@@ -1,0 +1,16 @@
+name: "Normal Batch Lifecycle"
+description: >
+  Runs a complete batch from START to DISCHARGING.
+  No operator intervention — the recipe drives all setpoints.
+  Validates that the FSM transitions through all phases and
+  conversion reaches completion.
+
+events:
+  # Operator sends START after 2 seconds of idle
+  - at: 2.0
+    action: command
+    value: START
+    log: "Operator sends START command"
+
+  # No further intervention — recipe handles everything.
+  # The simulation will progress: CHARGING -> HEATING -> EXOTHERM -> COOLING -> DISCHARGING

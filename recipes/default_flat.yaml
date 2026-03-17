@@ -1,0 +1,147 @@
+name: "Default Cure Process"
+steps:
+  # --- 1. Inertisieren: N2-Spuelung vor Befuellung ---
+  - name: INERT
+    duration: 60
+    profiles:
+      jacket_temp:
+        type: constant
+        value: 298.15  # 25 C — Umgebungstemperatur
+      em_mode:EM-INERT: { value: inertisieren }
+      em_mode:EM-FILL:  { value: aus }
+      em_mode:EM-AGIT:  { value: aus }
+      em_mode:EM-TEMP:  { value: aus }
+      em_mode:EM-PRESS: { value: aus }
+      em_mode:EM-DRAIN: { value: aus }
+
+  # --- 2. Harz dosieren ---
+  - name: CHARGE_COMPONENT_A
+    duration: 120
+    profiles:
+      feed_component_a:
+        type: constant
+        value: 0.5  # kg/s
+      jacket_temp:
+        type: constant
+        value: 298.15  # 25 C
+      em_mode:EM-FILL:  { value: dose_component_a }
+      em_mode:EM-AGIT:  { value: ruehren }
+      em_mode:EM-TEMP:  { value: aus }
+      em_mode:EM-PRESS: { value: druckhalten }
+      em_mode:EM-INERT: { value: aus }
+      em_mode:EM-DRAIN: { value: aus }
+
+  # --- 3. Haerter dosieren ---
+  - name: CHARGE_COMPONENT_B
+    duration: 60
+    profiles:
+      feed_component_b:
+        type: constant
+        value: 0.3  # kg/s (18 kg = stoichiometric for 60 kg component_a at ratio 0.3)
+      jacket_temp:
+        type: constant
+        value: 298.15
+      em_mode:EM-FILL:  { value: dose_component_b }
+      em_mode:EM-AGIT:  { value: ruehren }
+      em_mode:EM-TEMP:  { value: aus }
+      em_mode:EM-PRESS: { value: druckhalten }
+      em_mode:EM-INERT: { value: aus }
+      em_mode:EM-DRAIN: { value: aus }
+
+  # --- 4. Aufheizen auf Vorgeliertemperatur ---
+  - name: HEAT_TO_SOAK
+    duration: 300
+    profiles:
+      jacket_temp:
+        type: linear_ramp
+        start: 298.15  # 25 C
+        end: 338.15    # 65 C
+      em_mode:EM-FILL:  { value: aus }
+      em_mode:EM-AGIT:  { value: ruehren }
+      em_mode:EM-TEMP:  { value: heizen }
+      em_mode:EM-PRESS: { value: druckhalten }
+      em_mode:EM-INERT: { value: aus }
+      em_mode:EM-DRAIN: { value: aus }
+
+  # --- 5. Vorgelieren (Exothermie abfuehren) ---
+  - name: SOAK
+    duration: 900
+    profiles:
+      jacket_temp:
+        type: constant
+        value: 338.15  # 65 C — let early exotherm dissipate
+      em_mode:EM-FILL:  { value: aus }
+      em_mode:EM-AGIT:  { value: ruehren }
+      em_mode:EM-TEMP:  { value: halten }
+      em_mode:EM-PRESS: { value: druckhalten }
+      em_mode:EM-INERT: { value: aus }
+      em_mode:EM-DRAIN: { value: aus }
+
+  # --- 6. Aufheizen auf Haertetemperatur ---
+  - name: HEAT_TO_CURE
+    duration: 300
+    profiles:
+      jacket_temp:
+        type: linear_ramp
+        start: 338.15  # 65 C
+        end: 353.15    # 80 C
+      em_mode:EM-FILL:  { value: aus }
+      em_mode:EM-AGIT:  { value: ruehren }
+      em_mode:EM-TEMP:  { value: heizen }
+      em_mode:EM-PRESS: { value: druckhalten }
+      em_mode:EM-INERT: { value: aus }
+      em_mode:EM-DRAIN: { value: aus }
+
+  # --- 7. Haertephase (Hauptumsatz) ---
+  - name: HOLD_CURE
+    duration: 2400
+    profiles:
+      jacket_temp:
+        type: constant
+        value: 353.15  # 80 C
+      em_mode:EM-FILL:  { value: aus }
+      em_mode:EM-AGIT:  { value: ruehren }
+      em_mode:EM-TEMP:  { value: halten }
+      em_mode:EM-PRESS: { value: druckhalten }
+      em_mode:EM-INERT: { value: aus }
+      em_mode:EM-DRAIN: { value: aus }
+
+  # --- 8. Abkuehlen ---
+  - name: COOL_DOWN
+    duration: 600
+    profiles:
+      jacket_temp:
+        type: linear_ramp
+        start: 353.15  # 80 C
+        end: 303.15    # 30 C
+      em_mode:EM-FILL:  { value: aus }
+      em_mode:EM-AGIT:  { value: ruehren }
+      em_mode:EM-TEMP:  { value: kuehlen }
+      em_mode:EM-PRESS: { value: druckhalten }
+      em_mode:EM-INERT: { value: aus }
+      em_mode:EM-DRAIN: { value: aus }
+
+  # --- 9. Entleeren ---
+  - name: DISCHARGE
+    duration: 120
+    profiles:
+      jacket_temp:
+        type: constant
+        value: 303.15  # 30 C — hold cool
+      em_mode:EM-DRAIN: { value: entleeren }
+      em_mode:EM-FILL:  { value: aus }
+      em_mode:EM-AGIT:  { value: aus }
+      em_mode:EM-TEMP:  { value: aus }
+      em_mode:EM-PRESS: { value: aus }
+      em_mode:EM-INERT: { value: aus }
+
+  # --- 10. Sicherer Zustand ---
+  - name: SAFE_STATE
+    duration: 10
+    profiles:
+      em_mode:EM-FILL:  { value: aus }
+      em_mode:EM-AGIT:  { value: aus }
+      em_mode:EM-TEMP:  { value: aus }
+      em_mode:EM-PRESS: { value: aus }
+      em_mode:EM-DRAIN: { value: aus }
+      em_mode:EM-INERT: { value: aus }

@@ -1,0 +1,108 @@
+name: "Fast Cure (Test Mode)"
+# Compressed version of default for testing.
+# All durations are ~10x shorter than production; setpoints and
+# feed rates are identical so the physics behaves realistically.
+# Total batch time: ~318 s (~5.3 min) vs. ~3180 s (~53 min) in production.
+
+steps:
+  # ── Phase 1: Charge component_a ────────────────────────────────────────────
+  # Feed 0.5 kg/s of component_a into an empty reactor at ambient temperature.
+  # Expected mass gain: 0.5 * 12 = 6 kg component_a.
+  # Jacket held at ambient to prevent premature curing.
+  - name: CHARGE_COMPONENT_A
+    duration: 12
+    profiles:
+      feed_component_a:
+        type: constant
+        value: 0.5          # kg/s — component_a feed rate
+      feed_component_b:
+        type: constant
+        value: 0.0          # kg/s — no component_b yet
+      feed_solvent:
+        type: constant
+        value: 0.0          # kg/s — no solvent
+      jacket_temp:
+        type: constant
+        value: 298.15       # K (25 °C) — ambient hold
+
+  # ── Phase 2: Charge component_b ─────────────────────────────────────────
+  # Add component_b at stoichiometric ratio while keeping jacket at ambient.
+  # Expected mass gain: 0.2 * 6 = 1.2 kg component_b.
+  - name: CHARGE_COMPONENT_B
+    duration: 6
+    profiles:
+      feed_component_a:
+        type: constant
+        value: 0.0          # kg/s — component_a feed stopped
+      feed_component_b:
+        type: constant
+        value: 0.2          # kg/s — component_b feed rate
+      feed_solvent:
+        type: constant
+        value: 0.0
+      jacket_temp:
+        type: constant
+        value: 298.15       # K — ambient hold
+
+  # ── Phase 3: Ramp to cure temperature ────────────────────────────────
+  # Linear jacket ramp from 25 °C to 80 °C over 60 s.
+  # Reactor temperature lags jacket by UA/mCp time constant.
+  # No material feeds — closed reactor.
+  - name: HEAT_TO_CURE
+    duration: 60
+    profiles:
+      feed_component_a:
+        type: constant
+        value: 0.0
+      feed_component_b:
+        type: constant
+        value: 0.0
+      feed_solvent:
+        type: constant
+        value: 0.0
+      jacket_temp:
+        type: linear_ramp
+        start: 298.15       # K (25 °C) — start of ramp
+        end: 353.15         # K (80 °C) — cure setpoint
+
+  # ── Phase 4: Hold at cure temperature ────────────────────────────────
+  # Isothermal hold at 80 °C for 180 s.
+  # Exothermic reaction proceeds; conversion rises toward 0.95+.
+  # Kamal-Sourour autocatalytic kinetics drive the exotherm peak
+  # ~30–90 s into this hold depending on mass and kinetic parameters.
+  - name: HOLD_CURE
+    duration: 180
+    profiles:
+      feed_component_a:
+        type: constant
+        value: 0.0
+      feed_component_b:
+        type: constant
+        value: 0.0
+      feed_solvent:
+        type: constant
+        value: 0.0
+      jacket_temp:
+        type: constant
+        value: 353.15       # K (80 °C) — cure hold
+
+  # ── Phase 5: Cool down ──────────────────────────────────────────────
+  # Linear jacket ramp from 80 °C down to 30 °C over 60 s.
+  # Reactor temperature follows jacket with thermal lag.
+  # Conversion should be >0.95 by start of this step.
+  - name: COOL_DOWN
+    duration: 60
+    profiles:
+      feed_component_a:
+        type: constant
+        value: 0.0
+      feed_component_b:
+        type: constant
+        value: 0.0
+      feed_solvent:
+        type: constant
+        value: 0.0
+      jacket_temp:
+        type: linear_ramp
+        start: 353.15       # K (80 °C) — end of cure hold
+        end: 303.15         # K (30 °C) — discharge temperature

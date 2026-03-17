@@ -1,0 +1,35 @@
+name: "Jacket Step Response"
+description: >
+  Starts a batch and applies a series of jacket temperature
+  step changes to characterise the thermal response.
+  Useful for tuning UA (heat transfer coefficient) and
+  verifying the energy balance dynamics.
+
+events:
+  - at: 2.0
+    action: command
+    value: START
+    log: "Operator sends START command"
+
+  # Step 1: hold ambient for 20s (baseline)
+  - at: 22.0
+    action: set_jacket
+    value: 323.15
+    log: "Step to 323.15 K (50 C)"
+
+  # Step 2: jump to 50 C, hold 30s
+  - at: 52.0
+    action: set_jacket
+    value: 353.15
+    log: "Step to 353.15 K (80 C)"
+
+  # Step 3: jump to 80 C, hold 30s
+  - at: 82.0
+    action: set_jacket
+    value: 373.15
+    log: "Step to 373.15 K (100 C)"
+
+  # Step 4: jump to 100 C, hold 30s
+  - at: 112.0
+    action: clear_jacket
+    log: "Release jacket override — recipe resumes control"

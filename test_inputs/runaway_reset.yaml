@@ -1,0 +1,29 @@
+name: "Thermal Runaway + Alarm Reset"
+description: >
+  Starts a batch, then at t=30s forces the jacket to 450 K
+  to trigger a thermal runaway alarm. After the alarm fires,
+  at t=120s the operator sends RESET to clear it.
+  Tests the safety interlock and alarm recovery path.
+
+events:
+  - at: 2.0
+    action: command
+    value: START
+    log: "Operator sends START command"
+
+  # Force extreme jacket temperature to trigger runaway
+  - at: 30.0
+    action: set_jacket
+    value: 450.0
+    log: "DCS forces jacket to 450 K (triggering runaway)"
+
+  # After alarm fires, operator resets
+  - at: 120.0
+    action: command
+    value: RESET
+    log: "Operator sends RESET to clear runaway alarm"
+
+  # Remove jacket override after reset
+  - at: 122.0
+    action: clear_jacket
+    log: "DCS removes jacket override after alarm reset"

@@ -1,0 +1,85 @@
+{
+  "component_a": {
+    "x": 60,
+    "y": 250
+  },
+  "component_b": {
+    "x": 210,
+    "y": 240
+  },
+  "solvent": {
+    "x": 560,
+    "y": 210
+  },
+  "component_a_valve": {
+    "x": -70,
+    "y": 360
+  },
+  "component_a_pump": {
+    "x": 10,
+    "y": 360
+  },
+  "component_a_flow": {
+    "x": 100,
+    "y": 390
+  },
+  "component_b_valve": {
+    "x": 350,
+    "y": 310
+  },
+  "component_b_pump": {
+    "x": 240,
+    "y": 340
+  },
+  "component_b_flow": {
+    "x": 280,
+    "y": 410
+  },
+  "solvent_valve": {
+    "x": 460,
+    "y": 260
+  },
+  "solvent_pump": {
+    "x": 600,
+    "y": 350
+  },
+  "solvent_flow": {
+    "x": 450,
+    "y": 370
+  },
+  "reactor": {
+    "x": 200,
+    "y": 500
+  },
+  "pressure_sensor": {
+    "x": 490,
+    "y": 510
+  },
+  "level_sensor": {
+    "x": 20,
+    "y": 640
+  },
+  "jacket": {
+    "x": 40,
+    "y": 500
+  },
+  "agitator": {
+    "x": 530,
+    "y": 660
+  },
+  "drain_valve": {
+    "x": 250,
+    "y": 760
+  },
+  "drain_pump": {
+    "x": 140,
+    "y": 770
+  },
+  "drain_flow": {
+    "x": 20,
+    "y": 840
+  },
+  "product": {
+    "x": 300,
+    "y": 870
+  }

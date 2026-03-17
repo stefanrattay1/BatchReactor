@@ -1,0 +1,123 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<recipe name="Default Cure Process">
+
+  <metadata>
+    <version>1.0.0</version>
+    <author>stefan</author>
+    <approved_by>stefan</approved_by>
+    <approval_date>2026-03-03</approval_date>
+    <change_log>1.0.0 (2026-03-03): Initial XML format with EM mode channels</change_log>
+  </metadata>
+
+  <!-- 1. Inertisieren: N2-Spuelung vor Befuellung -->
+  <step name="INERT" duration="60">
+    <profile channel="jacket_temp" type="constant" value="298.15"/>
+    <profile channel="em_mode:EM-INERT" type="constant" value="inertisieren"/>
+    <profile channel="em_mode:EM-FILL"  type="constant" value="aus"/>
+    <profile channel="em_mode:EM-AGIT"  type="constant" value="aus"/>
+    <profile channel="em_mode:EM-TEMP"  type="constant" value="aus"/>
+    <profile channel="em_mode:EM-PRESS" type="constant" value="aus"/>
+    <profile channel="em_mode:EM-DRAIN" type="constant" value="aus"/>
+  </step>
+
+  <!-- 2. Harz dosieren -->
+  <step name="CHARGE_COMPONENT_A" duration="120">
+    <profile channel="feed_component_a"  type="constant" value="0.5"/>
+    <profile channel="jacket_temp" type="constant" value="298.15"/>
+    <profile channel="em_mode:EM-FILL"  type="constant" value="dose_component_a"/>
+    <profile channel="em_mode:EM-AGIT"  type="constant" value="ruehren"/>
+    <profile channel="em_mode:EM-TEMP"  type="constant" value="aus"/>
+    <profile channel="em_mode:EM-PRESS" type="constant" value="druckhalten"/>
+    <profile channel="em_mode:EM-INERT" type="constant" value="aus"/>
+    <profile channel="em_mode:EM-DRAIN" type="constant" value="aus"/>
+  </step>
+
+  <!-- 3. Haerter dosieren -->
+  <step name="CHARGE_COMPONENT_B" duration="60">
+    <profile channel="feed_component_b" type="constant" value="0.3"/>
+    <profile channel="jacket_temp"   type="constant" value="298.15"/>
+    <profile channel="em_mode:EM-FILL"  type="constant" value="dose_component_b"/>
+    <profile channel="em_mode:EM-AGIT"  type="constant" value="ruehren"/>
+    <profile channel="em_mode:EM-TEMP"  type="constant" value="aus"/>
+    <profile channel="em_mode:EM-PRESS" type="constant" value="druckhalten"/>
+    <profile channel="em_mode:EM-INERT" type="constant" value="aus"/>
+    <profile channel="em_mode:EM-DRAIN" type="constant" value="aus"/>
+  </step>
+
+  <!-- 4. Aufheizen auf Vorgeliertemperatur -->
+  <step name="HEAT_TO_SOAK" duration="300">
+    <profile channel="jacket_temp" type="linear_ramp" start="298.15" end="338.15"/>
+    <profile channel="em_mode:EM-FILL"  type="constant" value="aus"/>
+    <profile channel="em_mode:EM-AGIT"  type="constant" value="ruehren"/>
+    <profile channel="em_mode:EM-TEMP"  type="constant" value="heizen"/>
+    <profile channel="em_mode:EM-PRESS" type="constant" value="druckhalten"/>
+    <profile channel="em_mode:EM-INERT" type="constant" value="aus"/>
+    <profile channel="em_mode:EM-DRAIN" type="constant" value="aus"/>
+  </step>
+
+  <!-- 5. Vorgelieren -->
+  <step name="SOAK" duration="900">
+    <profile channel="jacket_temp" type="constant" value="338.15"/>
+    <profile channel="em_mode:EM-FILL"  type="constant" value="aus"/>
+    <profile channel="em_mode:EM-AGIT"  type="constant" value="ruehren"/>
+    <profile channel="em_mode:EM-TEMP"  type="constant" value="halten"/>
+    <profile channel="em_mode:EM-PRESS" type="constant" value="druckhalten"/>
+    <profile channel="em_mode:EM-INERT" type="constant" value="aus"/>
+    <profile channel="em_mode:EM-DRAIN" type="constant" value="aus"/>
+  </step>
+
+  <!-- 6. Aufheizen auf Haertetemperatur -->
+  <step name="HEAT_TO_CURE" duration="300">
+    <profile channel="jacket_temp" type="linear_ramp" start="338.15" end="353.15"/>
+    <profile channel="em_mode:EM-FILL"  type="constant" value="aus"/>
+    <profile channel="em_mode:EM-AGIT"  type="constant" value="ruehren"/>
+    <profile channel="em_mode:EM-TEMP"  type="constant" value="heizen"/>
+    <profile channel="em_mode:EM-PRESS" type="constant" value="druckhalten"/>
+    <profile channel="em_mode:EM-INERT" type="constant" value="aus"/>
+    <profile channel="em_mode:EM-DRAIN" type="constant" value="aus"/>
+  </step>
+
+  <!-- 7. Haertephase -->
+  <step name="HOLD_CURE" duration="2400">
+    <profile channel="jacket_temp" type="constant" value="353.15"/>
+    <profile channel="em_mode:EM-FILL"  type="constant" value="aus"/>
+    <profile channel="em_mode:EM-AGIT"  type="constant" value="ruehren"/>
+    <profile channel="em_mode:EM-TEMP"  type="constant" value="halten"/>
+    <profile channel="em_mode:EM-PRESS" type="constant" value="druckhalten"/>
+    <profile channel="em_mode:EM-INERT" type="constant" value="aus"/>
+    <profile channel="em_mode:EM-DRAIN" type="constant" value="aus"/>
+  </step>
+
+  <!-- 8. Abkuehlen -->
+  <step name="COOL_DOWN" duration="600">
+    <profile channel="jacket_temp" type="linear_ramp" start="353.15" end="303.15"/>
+    <profile channel="em_mode:EM-FILL"  type="constant" value="aus"/>
+    <profile channel="em_mode:EM-AGIT"  type="constant" value="ruehren"/>
+    <profile channel="em_mode:EM-TEMP"  type="constant" value="kuehlen"/>
+    <profile channel="em_mode:EM-PRESS" type="constant" value="druckhalten"/>
+    <profile channel="em_mode:EM-INERT" type="constant" value="aus"/>
+    <profile channel="em_mode:EM-DRAIN" type="constant" value="aus"/>
+  </step>
+
+  <!-- 9. Entleeren -->
+  <step name="DISCHARGE" duration="120">
+    <profile channel="jacket_temp" type="constant" value="303.15"/>
+    <profile channel="em_mode:EM-DRAIN" type="constant" value="entleeren"/>
+    <profile channel="em_mode:EM-FILL"  type="constant" value="aus"/>
+    <profile channel="em_mode:EM-AGIT"  type="constant" value="aus"/>
+    <profile channel="em_mode:EM-TEMP"  type="constant" value="aus"/>
+    <profile channel="em_mode:EM-PRESS" type="constant" value="aus"/>
+    <profile channel="em_mode:EM-INERT" type="constant" value="aus"/>
+  </step>
+
+  <!-- 10. Sicherer Zustand -->
+  <step name="SAFE_STATE" duration="10">
+    <profile channel="em_mode:EM-FILL"  type="constant" value="aus"/>
+    <profile channel="em_mode:EM-AGIT"  type="constant" value="aus"/>
+    <profile channel="em_mode:EM-TEMP"  type="constant" value="aus"/>
+    <profile channel="em_mode:EM-PRESS" type="constant" value="aus"/>
+    <profile channel="em_mode:EM-DRAIN" type="constant" value="aus"/>
+    <profile channel="em_mode:EM-INERT" type="constant" value="aus"/>
+  </step>
+
+</recipe>

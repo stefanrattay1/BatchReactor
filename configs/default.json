@@ -1,0 +1,88 @@
+{
+  "kinetics": {
+    "A1": 50000.0,
+    "Ea1": 60000.0,
+    "A2": 500000000.0,
+    "Ea2": 75000.0,
+    "m": 0.5,
+    "n": 1.5,
+    "delta_H": 350.0,
+    "alpha_gel": 0.8
+  },
+  "thermal": {
+    "Cp": 1.8,
+    "UA": 1.0
+  },
+  "viscosity": {
+    "eta_0": 0.5,
+    "eta_ref": 0.5,
+    "T_ref_K": 298.15,
+    "E_eta_J_mol": 45000.0,
+    "C_visc": 2.0,
+    "alpha_gel": 0.8,
+    "eta_gel": 100.0,
+    "species_viscosities": {
+      "component_a": 1.5,
+      "component_b": 0.01,
+      "solvent": 0.001
+    }
+  },
+  "reactor": {
+    "volume_m3": 0.1,
+    "vessel_volume_L": 100.0,
+    "pressure_bar": 0.5,
+    "agitator_speed_rpm": 800
+  },
+  "geometry": {
+    "type": "cylindrical_torispherical",
+    "diameter_m": 0.5,
+    "height_m": 0.6
+  },
+  "mixing": {
+    "enabled": true,
+    "impeller_diameter_m": 0.22,
+    "power_number": 5.0,
+    "impeller_type": "rushton",
+    "n_blades": 6,
+    "wall_thickness_m": 0.005,
+    "wall_conductivity": 16.0,
+    "h_jacket": 2000.0,
+    "fluid_thermal_conductivity": 0.17,
+    "min_UA_fraction": 0.4
+  },
+  "physics": {
+    "stoich_ratio": 0.3,
+    "max_temp": 500.0,
+    "R_gas": 8.314,
+    "density_component_a": 1.16,
+    "density_component_b": 0.97,
+    "density_product": 1.2,
+    "density_solvent": 0.87
+  },
+  "controller": {
+    "cure_temp_K": 350.0,
+    "cool_done_temp_K": 313.15,
+    "runaway_temp_K": 473.15,
+    "runaway_dT_dt": 2.0,
+    "conversion_done": 0.95,
+    "dt_window": 10
+  },
+  "initial_conditions": {
+    "temperature": 298.15,
+    "jacket_temperature": 298.15,
+    "volume": 0.1
+  },
+  "solver": {
+    "horizon": 1.0,
+    "n_finite_elements": 8,
+    "collocation_points": 3,
+    "solver_name": "ipopt",
+    "solver_options": {
+      "max_iter": 2000,
+      "tol": 1e-07,
+      "acceptable_tol": 1e-06,
+      "mu_strategy": "adaptive",
+      "print_level": 0
+    }
+  }
+}

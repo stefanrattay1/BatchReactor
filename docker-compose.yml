@@ -1,0 +1,19 @@
+services:
+  reactor:
+    build: .
+    ports:
+      - "4840:4840"
+      - "8000:8000"
+    volumes:
+      - ./recipes:/app/recipes
+    environment:
+      REACTOR_OPC_PORT: 4840
+      REACTOR_WEB_PORT: 8000
+      REACTOR_ENABLE_WEB: "true"
+      REACTOR_TICK_INTERVAL: "0.5"
+      REACTOR_INITIAL_TEMP_K: "298.15"
+      REACTOR_BATCH_MASS_KG: "100"
+      REACTOR_NOISE_PCT: "0.5"
+      REACTOR_RECIPE_FILE: "recipes/default.yaml"
+      REACTOR_MODEL_CONFIG_FILE: "configs/default.yaml"
+    restart: unless-stopped

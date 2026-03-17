@@ -1,0 +1,524 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<OperationsDefinitionInformation
+  xmlns="http://www.mesa.org/xml/B2MML"
+  xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+  xsi:schemaLocation="http://www.mesa.org/xml/B2MML https://raw.githubusercontent.com/MESAInternational/B2MML-BatchML/master/Schema/B2MML-OperationsDefinition.xsd">
+
+  <ID>ODI_Default_Cure_Process</ID>
+  <Description>Default Cure Process — vollstaendige ISA-88 Rezeptur mit 10 Schritten</Description>
+  <PublishedDate>2026-03-01T00:00:00Z</PublishedDate>
+
+  <OperationsDefinition>
+    <ID>Default_Cure_Process</ID>
+    <Description>Default Cure Process</Description>
+    <Version>2.0</Version>
+    <PublishedDate>2026-03-01T00:00:00Z</PublishedDate>
+    <OperationsType>Production</OperationsType>
+    <DefinitionType>Instance</DefinitionType>
+
+    <!-- ================================================================== -->
+    <!-- 1. INERT — N2-Spuelung vor Befuellung                             -->
+    <!-- ================================================================== -->
+    <OperationsSegment>
+      <ID>INERT</ID>
+      <Description>N2-Spuelung: Sauerstoff verdraengen vor Befuellung</Description>
+      <OperationsType>Production</OperationsType>
+      <DefinitionType>Instance</DefinitionType>
+      <ParameterSpecification>
+        <ID>duration_s</ID>
+        <Value><ValueString>60</ValueString><UnitOfMeasure>s</UnitOfMeasure></Value>
+      </ParameterSpecification>
+      <ParameterSpecification>
+        <ID>jacket_temp</ID>
+        <Value><ValueString>298.15</ValueString><UnitOfMeasure>K</UnitOfMeasure></Value>
+      </ParameterSpecification>
+      <ParameterSpecification>
+        <ID>em_mode:EM-INERT</ID>
+        <Value><ValueString>inertisieren</ValueString></Value>
+      </ParameterSpecification>
+      <ParameterSpecification>
+        <ID>em_mode:EM-FILL</ID>
+        <Value><ValueString>aus</ValueString></Value>
+      </ParameterSpecification>
+      <ParameterSpecification>
+        <ID>em_mode:EM-AGIT</ID>
+        <Value><ValueString>aus</ValueString></Value>
+      </ParameterSpecification>
+      <ParameterSpecification>
+        <ID>em_mode:EM-TEMP</ID>
+        <Value><ValueString>aus</ValueString></Value>
+      </ParameterSpecification>
+      <ParameterSpecification>
+        <ID>em_mode:EM-PRESS</ID>
+        <Value><ValueString>aus</ValueString></Value>
+      </ParameterSpecification>
+      <ParameterSpecification>
+        <ID>em_mode:EM-DRAIN</ID>
+        <Value><ValueString>aus</ValueString></Value>
+      </ParameterSpecification>
+    </OperationsSegment>
+
+    <!-- ================================================================== -->
+    <!-- 2. CHARGE_COMPONENT_A — Harz dosieren                                    -->
+    <!-- ================================================================== -->
+    <OperationsSegment>
+      <ID>CHARGE_COMPONENT_A</ID>
+      <Description>Harz dosieren bei 298.15 K, Ruehrer und Druckregelung aktiv</Description>
+      <OperationsType>Production</OperationsType>
+      <DefinitionType>Instance</DefinitionType>
+      <ParameterSpecification>
+        <ID>duration_s</ID>
+        <Value><ValueString>120</ValueString><UnitOfMeasure>s</UnitOfMeasure></Value>
+      </ParameterSpecification>
+      <ParameterSpecification>
+        <ID>feed_component_a</ID>
+        <Value><ValueString>0.5</ValueString><UnitOfMeasure>kg/s</UnitOfMeasure></Value>
+      </ParameterSpecification>
+      <ParameterSpecification>
+        <ID>feed_component_a_min_check</ID>
+        <Value><ValueString>0.05</ValueString><UnitOfMeasure>kg/s</UnitOfMeasure></Value>
+      </ParameterSpecification>
+      <ParameterSpecification>
+        <ID>feed_component_a_pump_speed_rpm</ID>
+        <Value><ValueString>1200</ValueString><UnitOfMeasure>rpm</UnitOfMeasure></Value>
+      </ParameterSpecification>
+      <ParameterSpecification>
+        <ID>feed_line_level_max_pct</ID>
+        <Value><ValueString>95</ValueString><UnitOfMeasure>%</UnitOfMeasure></Value>
+      </ParameterSpecification>
+      <ParameterSpecification>
+        <ID>feed_line_valve_required</ID>
+        <Value><ValueString>1</ValueString></Value>
+      </ParameterSpecification>
+      <ParameterSpecification>
+        <ID>feed_line_pump_required</ID>
+        <Value><ValueString>1</ValueString></Value>
+      </ParameterSpecification>
+      <ParameterSpecification>
+        <ID>feed_line_flow_sensor_required</ID>
+        <Value><ValueString>1</ValueString></Value>
+      </ParameterSpecification>
+      <ParameterSpecification>
+        <ID>feed_line_flow_sensor_heartbeat_required</ID>
+        <Value><ValueString>1</ValueString></Value>
+      </ParameterSpecification>
+      <ParameterSpecification>
+        <ID>jacket_temp</ID>
+        <Value><ValueString>298.15</ValueString><UnitOfMeasure>K</UnitOfMeasure></Value>
+      </ParameterSpecification>
+      <ParameterSpecification>
+        <ID>em_mode:EM-FILL</ID>
+        <Value><ValueString>dose_component_a</ValueString></Value>
+      </ParameterSpecification>
+      <ParameterSpecification>
+        <ID>em_mode:EM-AGIT</ID>
+        <Value><ValueString>ruehren</ValueString></Value>
+      </ParameterSpecification>
+      <ParameterSpecification>
+        <ID>em_mode:EM-TEMP</ID>
+        <Value><ValueString>aus</ValueString></Value>
+      </ParameterSpecification>
+      <ParameterSpecification>
+        <ID>em_mode:EM-PRESS</ID>
+        <Value><ValueString>druckhalten</ValueString></Value>
+      </ParameterSpecification>
+      <ParameterSpecification>
+        <ID>em_mode:EM-INERT</ID>
+        <Value><ValueString>aus</ValueString></Value>
+      </ParameterSpecification>
+      <ParameterSpecification>
+        <ID>em_mode:EM-DRAIN</ID>
+        <Value><ValueString>aus</ValueString></Value>
+      </ParameterSpecification>
+    </OperationsSegment>
+
+    <!-- ================================================================== -->
+    <!-- 3. CHARGE_COMPONENT_B — Haerter dosieren                              -->
+    <!-- ================================================================== -->
+    <OperationsSegment>
+      <ID>CHARGE_COMPONENT_B</ID>
+      <Description>Haerter dosieren bei 298.15 K, Ruehrer aktiv</Description>
+      <OperationsType>Production</OperationsType>
+      <DefinitionType>Instance</DefinitionType>
+      <ParameterSpecification>
+        <ID>duration_s</ID>
+        <Value><ValueString>60</ValueString><UnitOfMeasure>s</UnitOfMeasure></Value>
+      </ParameterSpecification>
+      <ParameterSpecification>
+        <ID>feed_component_b</ID>
+        <Value><ValueString>0.3</ValueString><UnitOfMeasure>kg/s</UnitOfMeasure></Value>
+      </ParameterSpecification>
+      <ParameterSpecification>
+        <ID>feed_component_b_min_check</ID>
+        <Value><ValueString>0.03</ValueString><UnitOfMeasure>kg/s</UnitOfMeasure></Value>
+      </ParameterSpecification>
+      <ParameterSpecification>
+        <ID>feed_component_b_pump_speed_rpm</ID>
+        <Value><ValueString>1050</ValueString><UnitOfMeasure>rpm</UnitOfMeasure></Value>
+      </ParameterSpecification>
+      <ParameterSpecification>
+        <ID>feed_line_level_max_pct</ID>
+        <Value><ValueString>95</ValueString><UnitOfMeasure>%</UnitOfMeasure></Value>
+      </ParameterSpecification>
+      <ParameterSpecification>
+        <ID>feed_line_valve_required</ID>
+        <Value><ValueString>1</ValueString></Value>
+      </ParameterSpecification>
+      <ParameterSpecification>
+        <ID>feed_line_pump_required</ID>
+        <Value><ValueString>1</ValueString></Value>
+      </ParameterSpecification>
+      <ParameterSpecification>
+        <ID>feed_line_flow_sensor_required</ID>
+        <Value><ValueString>1</ValueString></Value>
+      </ParameterSpecification>
+      <ParameterSpecification>
+        <ID>feed_line_flow_sensor_heartbeat_required</ID>
+        <Value><ValueString>1</ValueString></Value>
+      </ParameterSpecification>
+      <ParameterSpecification>
+        <ID>jacket_temp</ID>
+        <Value><ValueString>298.15</ValueString><UnitOfMeasure>K</UnitOfMeasure></Value>
+      </ParameterSpecification>
+      <ParameterSpecification>
+        <ID>em_mode:EM-FILL</ID>
+        <Value><ValueString>dose_component_b</ValueString></Value>
+      </ParameterSpecification>
+      <ParameterSpecification>
+        <ID>em_mode:EM-AGIT</ID>
+        <Value><ValueString>ruehren</ValueString></Value>
+      </ParameterSpecification>
+      <ParameterSpecification>
+        <ID>em_mode:EM-TEMP</ID>
+        <Value><ValueString>aus</ValueString></Value>
+      </ParameterSpecification>
+      <ParameterSpecification>
+        <ID>em_mode:EM-PRESS</ID>
+        <Value><ValueString>druckhalten</ValueString></Value>
+      </ParameterSpecification>
+      <ParameterSpecification>
+        <ID>em_mode:EM-INERT</ID>
+        <Value><ValueString>aus</ValueString></Value>
+      </ParameterSpecification>
+      <ParameterSpecification>
+        <ID>em_mode:EM-DRAIN</ID>
+        <Value><ValueString>aus</ValueString></Value>
+      </ParameterSpecification>
+    </OperationsSegment>
+
+    <!-- ================================================================== -->
+    <!-- 4. HEAT_TO_SOAK — Aufheizen auf Vorgeliertemperatur                -->
+    <!-- ================================================================== -->
+    <OperationsSegment>
+      <ID>HEAT_TO_SOAK</ID>
+      <Description>Aufheizen 298.15 K → 338.15 K, Ruehrer aktiv</Description>
+      <OperationsType>Production</OperationsType>
+      <DefinitionType>Instance</DefinitionType>
+      <ParameterSpecification>
+        <ID>duration_s</ID>
+        <Value><ValueString>300</ValueString><UnitOfMeasure>s</UnitOfMeasure></Value>
+      </ParameterSpecification>
+      <ParameterSpecification>
+        <ID>jacket_temp_profile_type</ID>
+        <Value><ValueString>linear_ramp</ValueString></Value>
+      </ParameterSpecification>
+      <ParameterSpecification>
+        <ID>jacket_temp_start</ID>
+        <Value><ValueString>298.15</ValueString><UnitOfMeasure>K</UnitOfMeasure></Value>
+      </ParameterSpecification>
+      <ParameterSpecification>
+        <ID>jacket_temp_end</ID>
+        <Value><ValueString>338.15</ValueString><UnitOfMeasure>K</UnitOfMeasure></Value>
+      </ParameterSpecification>
+      <ParameterSpecification>
+        <ID>em_mode:EM-FILL</ID>
+        <Value><ValueString>aus</ValueString></Value>
+      </ParameterSpecification>
+      <ParameterSpecification>
+        <ID>em_mode:EM-AGIT</ID>
+        <Value><ValueString>ruehren</ValueString></Value>
+      </ParameterSpecification>
+      <ParameterSpecification>
+        <ID>em_mode:EM-TEMP</ID>
+        <Value><ValueString>heizen</ValueString></Value>
+      </ParameterSpecification>
+      <ParameterSpecification>
+        <ID>em_mode:EM-PRESS</ID>
+        <Value><ValueString>druckhalten</ValueString></Value>
+      </ParameterSpecification>
+      <ParameterSpecification>
+        <ID>em_mode:EM-INERT</ID>
+        <Value><ValueString>aus</ValueString></Value>
+      </ParameterSpecification>
+      <ParameterSpecification>
+        <ID>em_mode:EM-DRAIN</ID>
+        <Value><ValueString>aus</ValueString></Value>
+      </ParameterSpecification>
+    </OperationsSegment>
+
+    <!-- ================================================================== -->
+    <!-- 5. SOAK — Vorgelieren                                              -->
+    <!-- ================================================================== -->
+    <OperationsSegment>
+      <ID>SOAK</ID>
+      <Description>Vorgelieren bei 338.15 K, Exothermie abfuehren</Description>
+      <OperationsType>Production</OperationsType>
+      <DefinitionType>Instance</DefinitionType>
+      <ParameterSpecification>
+        <ID>duration_s</ID>
+        <Value><ValueString>900</ValueString><UnitOfMeasure>s</UnitOfMeasure></Value>
+      </ParameterSpecification>
+      <ParameterSpecification>
+        <ID>jacket_temp</ID>
+        <Value><ValueString>338.15</ValueString><UnitOfMeasure>K</UnitOfMeasure></Value>
+      </ParameterSpecification>
+      <ParameterSpecification>
+        <ID>em_mode:EM-FILL</ID>
+        <Value><ValueString>aus</ValueString></Value>
+      </ParameterSpecification>
+      <ParameterSpecification>
+        <ID>em_mode:EM-AGIT</ID>
+        <Value><ValueString>ruehren</ValueString></Value>
+      </ParameterSpecification>
+      <ParameterSpecification>
+        <ID>em_mode:EM-TEMP</ID>
+        <Value><ValueString>halten</ValueString></Value>
+      </ParameterSpecification>
+      <ParameterSpecification>
+        <ID>em_mode:EM-PRESS</ID>
+        <Value><ValueString>druckhalten</ValueString></Value>
+      </ParameterSpecification>
+      <ParameterSpecification>
+        <ID>em_mode:EM-INERT</ID>
+        <Value><ValueString>aus</ValueString></Value>
+      </ParameterSpecification>
+      <ParameterSpecification>
+        <ID>em_mode:EM-DRAIN</ID>
+        <Value><ValueString>aus</ValueString></Value>
+      </ParameterSpecification>
+    </OperationsSegment>
+
+    <!-- ================================================================== -->
+    <!-- 6. HEAT_TO_CURE — Aufheizen auf Haertetemperatur                   -->
+    <!-- ================================================================== -->
+    <OperationsSegment>
+      <ID>HEAT_TO_CURE</ID>
+      <Description>Aufheizen 338.15 K → 353.15 K</Description>
+      <OperationsType>Production</OperationsType>
+      <DefinitionType>Instance</DefinitionType>
+      <ParameterSpecification>
+        <ID>duration_s</ID>
+        <Value><ValueString>300</ValueString><UnitOfMeasure>s</UnitOfMeasure></Value>
+      </ParameterSpecification>
+      <ParameterSpecification>
+        <ID>jacket_temp_profile_type</ID>
+        <Value><ValueString>linear_ramp</ValueString></Value>
+      </ParameterSpecification>
+      <ParameterSpecification>
+        <ID>jacket_temp_start</ID>
+        <Value><ValueString>338.15</ValueString><UnitOfMeasure>K</UnitOfMeasure></Value>
+      </ParameterSpecification>
+      <ParameterSpecification>
+        <ID>jacket_temp_end</ID>
+        <Value><ValueString>353.15</ValueString><UnitOfMeasure>K</UnitOfMeasure></Value>
+      </ParameterSpecification>
+      <ParameterSpecification>
+        <ID>em_mode:EM-FILL</ID>
+        <Value><ValueString>aus</ValueString></Value>
+      </ParameterSpecification>
+      <ParameterSpecification>
+        <ID>em_mode:EM-AGIT</ID>
+        <Value><ValueString>ruehren</ValueString></Value>
+      </ParameterSpecification>
+      <ParameterSpecification>
+        <ID>em_mode:EM-TEMP</ID>
+        <Value><ValueString>heizen</ValueString></Value>
+      </ParameterSpecification>
+      <ParameterSpecification>
+        <ID>em_mode:EM-PRESS</ID>
+        <Value><ValueString>druckhalten</ValueString></Value>
+      </ParameterSpecification>
+      <ParameterSpecification>
+        <ID>em_mode:EM-INERT</ID>
+        <Value><ValueString>aus</ValueString></Value>
+      </ParameterSpecification>
+      <ParameterSpecification>
+        <ID>em_mode:EM-DRAIN</ID>
+        <Value><ValueString>aus</ValueString></Value>
+      </ParameterSpecification>
+    </OperationsSegment>
+
+    <!-- ================================================================== -->
+    <!-- 7. HOLD_CURE — Haertephase (Hauptumsatz)                           -->
+    <!-- ================================================================== -->
+    <OperationsSegment>
+      <ID>HOLD_CURE</ID>
+      <Description>Haertephase bei 353.15 K, Hauptumsatz</Description>
+      <OperationsType>Production</OperationsType>
+      <DefinitionType>Instance</DefinitionType>
+      <ParameterSpecification>
+        <ID>duration_s</ID>
+        <Value><ValueString>2400</ValueString><UnitOfMeasure>s</UnitOfMeasure></Value>
+      </ParameterSpecification>
+      <ParameterSpecification>
+        <ID>jacket_temp</ID>
+        <Value><ValueString>353.15</ValueString><UnitOfMeasure>K</UnitOfMeasure></Value>
+      </ParameterSpecification>
+      <ParameterSpecification>
+        <ID>em_mode:EM-FILL</ID>
+        <Value><ValueString>aus</ValueString></Value>
+      </ParameterSpecification>
+      <ParameterSpecification>
+        <ID>em_mode:EM-AGIT</ID>
+        <Value><ValueString>ruehren</ValueString></Value>
+      </ParameterSpecification>
+      <ParameterSpecification>
+        <ID>em_mode:EM-TEMP</ID>
+        <Value><ValueString>halten</ValueString></Value>
+      </ParameterSpecification>
+      <ParameterSpecification>
+        <ID>em_mode:EM-PRESS</ID>
+        <Value><ValueString>druckhalten</ValueString></Value>
+      </ParameterSpecification>
+      <ParameterSpecification>
+        <ID>em_mode:EM-INERT</ID>
+        <Value><ValueString>aus</ValueString></Value>
+      </ParameterSpecification>
+      <ParameterSpecification>
+        <ID>em_mode:EM-DRAIN</ID>
+        <Value><ValueString>aus</ValueString></Value>
+      </ParameterSpecification>
+    </OperationsSegment>
+
+    <!-- ================================================================== -->
+    <!-- 8. COOL_DOWN — Abkuehlen                                           -->
+    <!-- ================================================================== -->
+    <OperationsSegment>
+      <ID>COOL_DOWN</ID>
+      <Description>Abkuehlen 353.15 K → 303.15 K, Ruehrer aktiv</Description>
+      <OperationsType>Production</OperationsType>
+      <DefinitionType>Instance</DefinitionType>
+      <ParameterSpecification>
+        <ID>duration_s</ID>
+        <Value><ValueString>600</ValueString><UnitOfMeasure>s</UnitOfMeasure></Value>
+      </ParameterSpecification>
+      <ParameterSpecification>
+        <ID>jacket_temp_profile_type</ID>
+        <Value><ValueString>linear_ramp</ValueString></Value>
+      </ParameterSpecification>
+      <ParameterSpecification>
+        <ID>jacket_temp_start</ID>
+        <Value><ValueString>353.15</ValueString><UnitOfMeasure>K</UnitOfMeasure></Value>
+      </ParameterSpecification>
+      <ParameterSpecification>
+        <ID>jacket_temp_end</ID>
+        <Value><ValueString>303.15</ValueString><UnitOfMeasure>K</UnitOfMeasure></Value>
+      </ParameterSpecification>
+      <ParameterSpecification>
+        <ID>em_mode:EM-FILL</ID>
+        <Value><ValueString>aus</ValueString></Value>
+      </ParameterSpecification>
+      <ParameterSpecification>
+        <ID>em_mode:EM-AGIT</ID>
+        <Value><ValueString>ruehren</ValueString></Value>
+      </ParameterSpecification>
+      <ParameterSpecification>
+        <ID>em_mode:EM-TEMP</ID>
+        <Value><ValueString>kuehlen</ValueString></Value>
+      </ParameterSpecification>
+      <ParameterSpecification>
+        <ID>em_mode:EM-PRESS</ID>
+        <Value><ValueString>druckhalten</ValueString></Value>
+      </ParameterSpecification>
+      <ParameterSpecification>
+        <ID>em_mode:EM-INERT</ID>
+        <Value><ValueString>aus</ValueString></Value>
+      </ParameterSpecification>
+      <ParameterSpecification>
+        <ID>em_mode:EM-DRAIN</ID>
+        <Value><ValueString>aus</ValueString></Value>
+      </ParameterSpecification>
+    </OperationsSegment>
+
+    <!-- ================================================================== -->
+    <!-- 9. DISCHARGE — Entleeren                                            -->
+    <!-- ================================================================== -->
+    <OperationsSegment>
+      <ID>DISCHARGE</ID>
+      <Description>Produkt entleeren, Ruehrer und Heizung aus</Description>
+      <OperationsType>Production</OperationsType>
+      <DefinitionType>Instance</DefinitionType>
+      <ParameterSpecification>
+        <ID>duration_s</ID>
+        <Value><ValueString>120</ValueString><UnitOfMeasure>s</UnitOfMeasure></Value>
+      </ParameterSpecification>
+      <ParameterSpecification>
+        <ID>jacket_temp</ID>
+        <Value><ValueString>303.15</ValueString><UnitOfMeasure>K</UnitOfMeasure></Value>
+      </ParameterSpecification>
+      <ParameterSpecification>
+        <ID>em_mode:EM-DRAIN</ID>
+        <Value><ValueString>entleeren</ValueString></Value>
+      </ParameterSpecification>
+      <ParameterSpecification>
+        <ID>em_mode:EM-FILL</ID>
+        <Value><ValueString>aus</ValueString></Value>
+      </ParameterSpecification>
+      <ParameterSpecification>
+        <ID>em_mode:EM-AGIT</ID>
+        <Value><ValueString>aus</ValueString></Value>
+      </ParameterSpecification>
+      <ParameterSpecification>
+        <ID>em_mode:EM-TEMP</ID>
+        <Value><ValueString>aus</ValueString></Value>
+      </ParameterSpecification>
+      <ParameterSpecification>
+        <ID>em_mode:EM-PRESS</ID>
+        <Value><ValueString>aus</ValueString></Value>
+      </ParameterSpecification>
+      <ParameterSpecification>
+        <ID>em_mode:EM-INERT</ID>
+        <Value><ValueString>aus</ValueString></Value>
+      </ParameterSpecification>
+    </OperationsSegment>
+
+    <!-- ================================================================== -->
+    <!-- 10. SAFE_STATE — Sicherer Zustand                                   -->
+    <!-- ================================================================== -->
+    <OperationsSegment>
+      <ID>SAFE_STATE</ID>
+      <Description>Alle Equipment Modules in sicheren Zustand (aus)</Description>
+      <OperationsType>Production</OperationsType>
+      <DefinitionType>Instance</DefinitionType>
+      <ParameterSpecification>
+        <ID>duration_s</ID>
+        <Value><ValueString>10</ValueString><UnitOfMeasure>s</UnitOfMeasure></Value>
+      </ParameterSpecification>
+      <ParameterSpecification>
+        <ID>em_mode:EM-FILL</ID>
+        <Value><ValueString>aus</ValueString></Value>
+      </ParameterSpecification>
+      <ParameterSpecification>
+        <ID>em_mode:EM-AGIT</ID>
+        <Value><ValueString>aus</ValueString></Value>
+      </ParameterSpecification>
+      <ParameterSpecification>
+        <ID>em_mode:EM-TEMP</ID>
+        <Value><ValueString>aus</ValueString></Value>
+      </ParameterSpecification>
+      <ParameterSpecification>
+        <ID>em_mode:EM-PRESS</ID>
+        <Value><ValueString>aus</ValueString></Value>
+      </ParameterSpecification>
+      <ParameterSpecification>
+        <ID>em_mode:EM-DRAIN</ID>
+        <Value><ValueString>aus</ValueString></Value>
+      </ParameterSpecification>
+      <ParameterSpecification>
+        <ID>em_mode:EM-INERT</ID>
+        <Value><ValueString>aus</ValueString></Value>
+      </ParameterSpecification>
+    </OperationsSegment>
+  </OperationsDefinition>
+
+</OperationsDefinitionInformation>

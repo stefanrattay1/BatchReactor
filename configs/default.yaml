@@ -1,0 +1,452 @@
+materials:
+  component_a:
+    material_id: MAT-COMPA-001
+    vendor: "ChemSupplier GmbH"
+    grade: industrial
+    cas_number: "25036-25-3"
+    properties:
+      density_kg_L: 1.2
+      ew_g_eq: 188.0
+  component_b:
+    material_id: MAT-COMPB-001
+    vendor: "AmineSupplier AG"
+    grade: technical
+    cas_number: "13531-52-7"
+    properties:
+      density_kg_L: 0.95
+      ahew_g_eq: 60.0
+
+kinetics:
+  A1: 5.0e+4           # s^-1, pre-exponential (catalytic path)
+  Ea1: 60000.0         # J/mol, activation energy path 1
+  A2: 5.0e+8           # s^-1, pre-exponential (autocatalytic path)
+  Ea2: 75000.0         # J/mol, activation energy path 2 (high Ea suppresses room-temp reaction)
+  m: 0.5               # autocatalytic exponent
+  n: 1.5               # reaction order exponent
+  delta_H: 350.0       # kJ/kg of component_a, total heat of reaction
+  alpha_gel: 0.8       # gel point conversion
+
+thermal:
+  Cp: 1.8              # kJ/(kg*K), specific heat of mixture
+  UA: 1.0              # kW/K, overall heat transfer coeff * area (jacketed vessel)
+
+viscosity:
+  eta_0: 0.5           # Pa*s, fallback base viscosity (used if no species_viscosities)
+  eta_ref: 0.5         # Pa*s, reference viscosity at T_ref_K (fallback)
+  T_ref_K: 298.15      # K, reference temperature
+  E_eta_J_mol: 45000.0 # J/mol, Arrhenius activation energy for viscosity
+  C_visc: 2.0          # dimensionless shape parameter for exponential divergence
+  alpha_gel: 0.8       # gel point conversion
+  eta_gel: 100.0       # Pa*s, viscosity cap at/beyond gel point (cured solid)
+  species_viscosities:  # Pa*s at T_ref_K, for log-mixing rule
+    component_a: 1.5          # Pa*s, component A at 25C
+    component_b: 0.01      # Pa*s, amine component_b at 25C
+    solvent: 0.001      # Pa*s, organic solvent at 25C
+
+reactor:
+  volume_m3: 0.1              # m^3, reactor working volume
+  vessel_volume_L: 100.0      # L, total vessel capacity
+  pressure_bar: 0.5           # bar, operating pressure (for safety display)
+  agitator_speed_rpm: 800     # rpm, constant agitator speed (high-speed Rushton)
+
+# --- Optional: Vessel Geometry ---
+# Enables geometry-aware heat transfer (wetted area varies with fill level).
+# Omit this section entirely to use constant-UA behaviour.
+geometry:
+  type: cylindrical_torispherical   # or: cylindrical_flat
+  diameter_m: 0.50                  # m, inner diameter
+  height_m: 0.60                    # m, straight-side height
+
+# --- Optional: Mixing Model ---
+# Enables Reynolds-based mixing efficiency and dynamic heat transfer
+# coefficient (h varies with viscosity and agitator speed).
+# Set enabled: false (or omit section) to use constant-UA behaviour.
+mixing:
+  enabled: true
+  impeller_diameter_m: 0.22         # m, ~D_tank/2 (larger for better mixing)
+  power_number: 5.0                 # Rushton turbine
+  impeller_type: rushton
+  n_blades: 6
+  wall_thickness_m: 0.005           # m, vessel wall thickness (SS304)
+  wall_conductivity: 16.0           # W/(m·K), stainless steel 304
+  h_jacket: 2000.0                  # W/(m²·K), jacket-side HTC (thermal oil / high-flow water)
+  fluid_thermal_conductivity: 0.17  # W/(m·K), process fluid
+  min_UA_fraction: 0.4              # minimum UA as fraction of static UA (conductive floor)
+
+physics:
+  stoich_ratio: 0.3       # kg component_b consumed per kg component_a consumed
+  max_temp: 500.0         # K, safety cap for numerical stability
+  R_gas: 8.314            # J/(mol*K), universal gas constant
+  density_component_a: 1.16     # kg/L, component A (liquid)
+  density_component_b: 0.97  # kg/L, component B
+  density_product: 1.20   # kg/L, reaction product
+  density_solvent: 0.87   # kg/L, organic solvent
+
+controller:
+  cure_temp_K: 350.0          # K, target cure temperature (~77°C)
+  cool_done_temp_K: 313.15    # K, cool enough to discharge
+  runaway_temp_K: 473.15      # K, absolute temperature alarm
+  runaway_dT_dt: 2.0          # K/s, rate-of-rise alarm
+  conversion_done: 0.95       # reaction essentially complete
+  dt_window: 10               # rolling window for dT/dt
+
+initial_conditions:
+  temperature: 298.15         # K
+  jacket_temperature: 298.15  # K
+  volume: 0.1                 # m^3
+
+solver:
+  horizon: 1.0                # seconds per solve
+  n_finite_elements: 8        # collocation finite elements per horizon
+  collocation_points: 3       # Radau points per element
+  solver_name: ipopt
+  solver_options:
+    max_iter: 2000
+    tol: 1.0e-7
+    acceptable_tol: 1.0e-6
+    mu_strategy: adaptive
+    print_level: 0
+
+batch_parameter_sets:
+  lab_10kg:
+    target_mass_kg: 10.0
+    feed_scale: 0.10
+    duration_scale: 1.0
+  pilot_50kg:
+    target_mass_kg: 50.0
+    feed_scale: 0.50
+    duration_scale: 1.0
+  plant_100kg:
+    target_mass_kg: 100.0
+    feed_scale: 1.00
+    duration_scale: 1.0
+
+# --- Optional: ISA-88 Equipment Module / Control Module Layer ---
+# Enables procedural control automation.  Omit to use direct recipe-to-physics mode.
+equipment:
+  interlocks:
+    mode_conflicts:
+      - left: "EM-FILL:dose_component_a"
+        right: "EM-DRAIN:entleeren"
+      - left: "EM-FILL:dose_component_b"
+        right: "EM-DRAIN:entleeren"
+    mode_preconditions:
+      - selector: "EM-DRAIN:entleeren"
+        requires:
+          - "EM-FILL:aus"
+      - selector: "EM-FILL:dose_component_a"
+        requires:
+          - "EM-DRAIN:aus"
+      - selector: "EM-FILL:dose_component_b"
+        requires:
+          - "EM-DRAIN:aus"
+
+  control_modules:
+    # --- Filling / Dosing ---
+    - tag: XV-101
+      type: valve_onoff
+      name: "Harz Einlassventil"
+      flow_rate: 0.5
+    - tag: XV-102
+      type: valve_onoff
+      name: "Haerter Einlassventil"
+      flow_rate: 0.3
+    - tag: XV-103
+      type: valve_onoff
+      name: "Loesemittel Einlassventil"
+      flow_rate: 0.2
+    - tag: P-101
+      type: pump
+      name: "Harz Foerderpumpe"
+      flow_rate: 0.5
+      max_speed: 1500
+    - tag: P-102
+      type: pump
+      name: "Haerter Foerderpumpe"
+      flow_rate: 0.3
+      max_speed: 1500
+    - tag: P-103
+      type: pump
+      name: "Loesemittel Foerderpumpe"
+      flow_rate: 0.2
+      max_speed: 1500
+    - tag: FT-101
+      type: sensor
+      name: "Harz Durchflussmessung"
+      maps_to: feed_rate_component_a
+      unit: "kg/s"
+    - tag: FT-102
+      type: sensor
+      name: "Haerter Durchflussmessung"
+      maps_to: feed_rate_component_b
+      unit: "kg/s"
+    - tag: FT-103
+      type: sensor
+      name: "Loesemittel Durchflussmessung"
+      maps_to: feed_rate_solvent
+      unit: "kg/s"
+    - tag: LT-101
+      type: sensor
+      name: "Reaktor Fuellstand"
+      maps_to: fill_pct
+      unit: "%"
+      alarms:
+        HH: 95.0
+        H: 90.0
+
+    # --- Draining ---
+    - tag: XV-301
+      type: valve_onoff
+      name: "Auslassventil"
+      maps_to: drain_valve
+      flow_rate: 1.0
+    - tag: P-301
+      type: pump
+      name: "Entleerungspumpe"
+      flow_rate: 1.0
+      max_speed: 1500
+    - tag: FT-301
+      type: sensor
+      name: "Auslass Durchflussmessung"
+      maps_to: drain_flow
+      unit: "kg/s"
+
+    # --- Temperature Control ---
+    - tag: HE-101
+      type: heater
+      name: "Mantelheizung/-kuehlung"
+      maps_to: jacket_temperature
+      min_temp: 263.15
+      max_temp: 473.15
+    - tag: P-201
+      type: pump
+      name: "Umwaelzpumpe"
+      flow_rate: 5.0
+      max_speed: 3000
+    - tag: TT-101
+      type: sensor
+      name: "Reaktortemperatur"
+      maps_to: temperature
+      unit: "K"
+      alarms:
+        HH: 473.15
+        H: 423.15
+        L: 273.15
+    - tag: TT-201
+      type: sensor
+      name: "Manteltemperatur"
+      maps_to: jacket_temperature
+      unit: "K"
+
+    # --- Agitation ---
+    - tag: M-101
+      type: motor
+      name: "Ruehrerantrieb"
+      maps_to: agitator_speed_rpm
+      max_speed_rpm: 1500
+    - tag: ST-101
+      type: sensor
+      name: "Ruehrer Drehzahl"
+      maps_to: agitator_speed_rpm
+      unit: "rpm"
+
+    # --- Pressure Control ---
+    - tag: PCV-101
+      type: valve_control
+      name: "Druckhalteventil"
+      maps_to: pressure_setpoint
+      max_flow: 1.0
+    - tag: P-401
+      type: pump
+      name: "Vakuumpumpe"
+      max_speed: 3000
+    - tag: PT-101
+      type: sensor
+      name: "Reaktordruck"
+      maps_to: pressure_bar
+      unit: "bar"
+      alarms:
+        HH: 5.0
+        H: 3.0
+        LL: 0.01
+
+    # --- Inerting ---
+    - tag: XV-501
+      type: valve_onoff
+      name: "Stickstoff Einlassventil"
+    - tag: XV-502
+      type: valve_onoff
+      name: "Abgasventil"
+
+  equipment_modules:
+    # EM-FILL: Befuellen / Dosieren
+    - tag: EM-FILL
+      name: "Befuellen / Dosieren"
+      cms: [XV-101, XV-102, XV-103, P-101, P-102, P-103, FT-101, FT-102, FT-103, LT-101, TT-101]
+      modes:
+        - name: aus
+          display_name: "Aus"
+          steps:
+            - { name: "Harz Ventil schliessen", action: "command:XV-101:close" }
+            - { name: "Haerter Ventil schliessen", action: "command:XV-102:close" }
+            - { name: "Loesemittel Ventil schliessen", action: "command:XV-103:close" }
+            - { name: "Harz Pumpe stoppen", action: "command:P-101:stop" }
+            - { name: "Haerter Pumpe stoppen", action: "command:P-102:stop" }
+            - { name: "Loesemittel Pumpe stoppen", action: "command:P-103:stop" }
+
+        - name: dose_component_a
+          display_name: "Harz dosieren"
+          preconditions:
+            - "cm_state:XV-101:idle AND pv_lt:LT-101:95"
+          postconditions:
+            - "cm_state:XV-101:running"
+            - "cm_state:P-101:running OR pv_gt:FT-101:0.05"
+          steps:
+            - { name: "Haerter Linie stoppen", action: "command:P-102:stop" }
+            - { name: "Haerter Ventil schliessen", action: "command:XV-102:close" }
+            - { name: "Loesemittel Linie stoppen", action: "command:P-103:stop" }
+            - { name: "Loesemittel Ventil schliessen", action: "command:XV-103:close" }
+            - { name: "Fuellstand permissiv", action: "noop", check: "pv_lt:LT-101:95", timeout_s: 5 }
+            - { name: "Harz Ventil oeffnen", action: "command:XV-101:open", check: "cm_state:XV-101:running", timeout_s: 5 }
+            - { name: "Harz Pumpe starten", action: "command:P-101:start", check: "cm_state:P-101:running", timeout_s: 5 }
+            - { name: "Harz Pumpe auf Soll", action: "command:P-101:set_speed:1200", check: "pv_gt:P-101:1100", timeout_s: 5 }
+            - { name: "Flow Sensor heartbeat", action: "noop", check: "cm_state:FT-101:running", timeout_s: 3 }
+            - { name: "Harz Mindestdurchfluss", action: "noop", check: "pv_gt:FT-101:0.05", timeout_s: 10 }
+            - { name: "Temperatur plausibel", action: "noop", check: "pv_lt:TT-101:360", timeout_s: 5, on_timeout: skip }
+
+        - name: dose_component_b
+          display_name: "Haerter dosieren"
+          steps:
+            - { name: "Harz Pumpe stoppen", action: "command:P-101:stop" }
+            - { name: "Harz Ventil schliessen", action: "command:XV-101:close" }
+            - { name: "Loesemittel Linie stoppen", action: "command:P-103:stop" }
+            - { name: "Loesemittel Ventil schliessen", action: "command:XV-103:close" }
+            - { name: "Fuellstand permissiv", action: "noop", check: "pv_lt:LT-101:95", timeout_s: 5 }
+            - { name: "Haerter Ventil oeffnen", action: "command:XV-102:open", check: "cm_state:XV-102:running", timeout_s: 5 }
+            - { name: "Haerter Pumpe starten", action: "command:P-102:start", check: "cm_state:P-102:running", timeout_s: 5 }
+            - { name: "Haerter Pumpe auf Soll", action: "command:P-102:set_speed:1050", check: "pv_gt:P-102:1000", timeout_s: 5 }
+            - { name: "Flow Sensor heartbeat", action: "noop", check: "cm_state:FT-102:running", timeout_s: 3 }
+            - { name: "Haerter Mindestdurchfluss", action: "noop", check: "pv_gt:FT-102:0.03", timeout_s: 10 }
+            - { name: "Temperatur plausibel", action: "noop", check: "pv_lt:TT-101:360", timeout_s: 5, on_timeout: skip }
+
+        - name: dosieren_solvent
+          display_name: "Loesemittel dosieren"
+          steps:
+            - { name: "Harz Linie stoppen", action: "command:P-101:stop" }
+            - { name: "Harz Ventil schliessen", action: "command:XV-101:close" }
+            - { name: "Haerter Linie stoppen", action: "command:P-102:stop" }
+            - { name: "Haerter Ventil schliessen", action: "command:XV-102:close" }
+            - { name: "Fuellstand permissiv", action: "noop", check: "pv_lt:LT-101:95", timeout_s: 5 }
+            - { name: "Loesemittel Ventil oeffnen", action: "command:XV-103:open", check: "cm_state:XV-103:running", timeout_s: 5 }
+            - { name: "Loesemittel Pumpe starten", action: "command:P-103:start", check: "cm_state:P-103:running", timeout_s: 5 }
+            - { name: "Loesemittel Pumpe auf Soll", action: "command:P-103:set_speed:900", check: "pv_gt:P-103:850", timeout_s: 5 }
+            - { name: "Flow Sensor heartbeat", action: "noop", check: "cm_state:FT-103:running", timeout_s: 3 }
+            - { name: "Loesemittel Mindestdurchfluss", action: "noop", check: "pv_gt:FT-103:0.02", timeout_s: 10 }
+
+    # EM-DRAIN: Entleeren
+    - tag: EM-DRAIN
+      name: "Entleeren"
+      cms: [XV-301, P-301, FT-301]
+      modes:
+        - name: aus
+          display_name: "Aus"
+          steps:
+            - { name: "Pumpe stoppen", action: "command:P-301:stop" }
+            - { name: "Auslassventil schliessen", action: "command:XV-301:close" }
+            - { name: "Durchflussalarm deaktivieren", action: "command:FT-301:disable_alarm" }
+
+        - name: entleeren
+          display_name: "Entleeren"
+          preconditions:
+            - "cm_state:XV-301:idle"
+            - "cm_state:P-301:idle"
+          postconditions:
+            - "cm_state:XV-301:running"
+            - "cm_state:P-301:running"
+          steps:
+            - { name: "Auslass oeffnen", action: "command:XV-301:open", check: "cm_state:XV-301:running", timeout_s: 5 }
+            - { name: "Pumpe starten", action: "command:P-301:start", check: "cm_state:P-301:running", timeout_s: 5 }
+            - { name: "Durchfluss pruefen", action: "noop", check: "pv_gt:FT-301:0.1", timeout_s: 10, on_timeout: skip }
+
+    # EM-TEMP: Temperierung
+    - tag: EM-TEMP
+      name: "Temperierung"
+      cms: [HE-101, P-201, TT-101, TT-201]
+      modes:
+        - name: aus
+          display_name: "Aus"
+          steps:
+            - { name: "Heizung aus", action: "command:HE-101:off" }
+            - { name: "Umwaelzpumpe stoppen", action: "command:P-201:stop" }
+
+        - name: heizen
+          display_name: "Heizen"
+          steps:
+            - { name: "Umwaelzpumpe starten", action: "command:P-201:start", check: "cm_state:P-201:running", timeout_s: 5 }
+
+        - name: kuehlen
+          display_name: "Kuehlen"
+          steps:
+            - { name: "Umwaelzpumpe starten", action: "command:P-201:start", check: "cm_state:P-201:running", timeout_s: 5 }
+
+        - name: halten
+          display_name: "Temperatur halten"
+          steps:
+            - { name: "Umwaelzpumpe pruefen", action: "command:P-201:start", check: "cm_state:P-201:running", timeout_s: 5 }
+
+    # EM-AGIT: Ruehren / Mischen
+    - tag: EM-AGIT
+      name: "Ruehren / Mischen"
+      cms: [M-101, ST-101]
+      modes:
+        - name: aus
+          display_name: "Aus"
+          steps:
+            - { name: "Motor stoppen", action: "command:M-101:stop" }
+
+        - name: ruehren
+          display_name: "Ruehren"
+          steps:
+            - { name: "Motor starten", action: "command:M-101:start:800", check: "cm_state:M-101:running", timeout_s: 5 }
+
+    # EM-PRESS: Druckregelung
+    - tag: EM-PRESS
+      name: "Druckregelung"
+      cms: [PCV-101, P-401, PT-101]
+      modes:
+        - name: aus
+          display_name: "Aus"
+          steps:
+            - { name: "Druckventil schliessen", action: "command:PCV-101:close" }
+            - { name: "Vakuumpumpe stoppen", action: "command:P-401:stop" }
+
+        - name: druckhalten
+          display_name: "Druck halten"
+          steps:
+            - { name: "Druckventil einstellen", action: "command:PCV-101:set_position:50", check: "cm_state:PCV-101:running", timeout_s: 5 }
+
+        - name: vakuum
+          display_name: "Vakuum"
+          steps:
+            - { name: "Druckventil schliessen", action: "command:PCV-101:close" }
+            - { name: "Vakuumpumpe starten", action: "command:P-401:start", check: "cm_state:P-401:running", timeout_s: 5 }
+
+    # EM-INERT: Inertisieren
+    - tag: EM-INERT
+      name: "Inertisieren"
+      cms: [XV-501, XV-502, PT-101]
+      modes:
+        - name: aus
+          display_name: "Aus"
+          steps:
+            - { name: "N2 Ventil schliessen", action: "command:XV-501:close" }
+            - { name: "Abgasventil schliessen", action: "command:XV-502:close" }
+
+        - name: inertisieren
+          display_name: "Inertisieren"
+          steps:
+            - { name: "Abgasventil oeffnen", action: "command:XV-502:open", check: "cm_state:XV-502:running", timeout_s: 5 }
+            - { name: "N2 Ventil oeffnen", action: "command:XV-501:open", check: "cm_state:XV-501:running", timeout_s: 5 }
+            - { name: "Druck stabilisieren", action: "noop", check: "pv_gt:PT-101:0.3", timeout_s: 30, on_timeout: skip }
+            - { name: "N2 Ventil schliessen", action: "command:XV-501:close" }
+            - { name: "Abgasventil schliessen", action: "command:XV-502:close" }

@@ -1,0 +1,1083 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Reactor Digital Twin</title>
+    <link rel="icon" type="image/svg+xml" href="/favicon.svg">
+    <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.4/dist/chart.umd.min.js"></script>
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body { font-family: 'Segoe UI', system-ui, sans-serif; background: #0a0e1a; color: #e2e8f0; min-height: 100vh; overflow-x: hidden; }
+
+        /* Header */
+        .header { 
+            background: #1e293b; 
+            padding: 10px 20px; 
+            display: flex; 
+            align-items: center; 
+            gap: 16px; 
+            border-bottom: 1px solid #334155;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.3);
+        }
+        .header h1 { font-size: 18px; font-weight: 700; color: #e2e8f0; }
+        .phase-badge { padding: 4px 12px; border-radius: 12px; font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.5px; }
+        .phase-IDLE { background: #475569; }
+        .phase-CHARGING { background: #2563eb; }
+        .phase-HEATING { background: #d97706; }
+        .phase-EXOTHERM { background: #dc2626; box-shadow: 0 0 15px rgba(220,38,38,0.5); }
+        .phase-COOLING { background: #0891b2; }
+        .phase-DISCHARGING { background: #059669; }
+        .phase-RUNAWAY_ALARM { background: #dc2626; animation: pulse 0.3s infinite alternate; box-shadow: 0 0 20px rgba(220,38,38,0.8); }
+        @keyframes pulse { to { opacity: 0.5; transform: scale(1.05); } }
+        
+        .header-controls { display: flex; gap: 8px; margin-left: auto; align-items: center; }
+        .btn { padding: 8px 16px; border: none; border-radius: 6px; font-size: 12px; font-weight: 600; cursor: pointer; transition: all 0.15s; }
+        .btn:hover { filter: brightness(1.05); }
+        .btn:disabled { opacity: 0.4; cursor: not-allowed; }
+        .btn-start { background: #22c55e; color: white; }
+        .btn-stop { background: #ef4444; color: white; }
+        .btn-reset { background: #f59e0b; color: white; }
+        .status-dot { width: 10px; height: 10px; border-radius: 50%; }
+        .status-dot.ok { background: #22c55e; box-shadow: 0 0 8px #22c55e; }
+        .status-dot.err { background: #ef4444; animation: pulse 1s infinite; }
+
+        /* Main Layout - Split View */
+        .main-container { display: grid; grid-template-columns: 1fr 1fr; min-height: calc(100vh - 100px); }
+        @media (max-width: 1200px) { .main-container { grid-template-columns: 1fr; } }
+
+        /* Left Panel - Reactor Visualization */
+        .reactor-panel { 
+            background: #0f172a;
+            padding: 20px; 
+            border-right: 1px solid #334155;
+            display: flex;
+            flex-direction: column;
+        }
+        .panel-title { font-size: 14px; font-weight: 600; color: #64748b; text-transform: uppercase; letter-spacing: 1px; margin-bottom: 16px; display: flex; align-items: center; gap: 8px; }
+        .panel-title::before { content: ''; width: 4px; height: 16px; background: #3b82f6; border-radius: 2px; }
+
+        /* Reactor SVG Container */
+        .reactor-svg-container { 
+            flex: 1; 
+            display: flex; 
+            justify-content: center; 
+            align-items: flex-start;
+            min-height: 520px;
+        }
+        .reactor-svg { width: 100%; height: 100%; max-width: 100%; max-height: none; }
+
+        /* Clickable Input Points */
+        .input-point { cursor: pointer; transition: all 0.15s; }
+        .input-point:hover { filter: brightness(1.08); }
+        .input-point.active { filter: drop-shadow(0 0 6px #3b82f6); }
+
+        /* Input Details Panel */
+        .input-details { 
+            background: #1e293b; 
+            border: 1px solid #334155; 
+            border-radius: 8px; 
+            padding: 16px; 
+            margin-top: 16px;
+            display: none;
+        }
+        .input-details.visible { display: block; animation: slideIn 0.2s ease-out; }
+        @keyframes slideIn { from { opacity: 0; transform: translateY(-10px); } to { opacity: 1; transform: translateY(0); } }
+        .input-details h3 { font-size: 14px; font-weight: 600; margin-bottom: 12px; display: flex; align-items: center; gap: 8px; }
+        .input-details h3 .icon { width: 24px; height: 24px; border-radius: 4px; display: flex; align-items: center; justify-content: center; font-size: 12px; }
+        .input-details .current-value { font-size: 24px; font-weight: 700; margin-bottom: 8px; }
+        .input-details .opc-tag { font-size: 11px; color: #64748b; font-family: monospace; background: #0f172a; padding: 4px 8px; border-radius: 4px; }
+        .timeline-chart { height: 120px; margin-top: 12px; }
+        .override-row { margin-top: 12px; display: flex; gap: 8px; align-items: center; }
+        .override-row input { width: 100px; padding: 6px 10px; background: #0f172a; border: 1px solid #334155; border-radius: 4px; color: #e2e8f0; font-size: 12px; }
+        .override-row input:focus { outline: none; border-color: #3b82f6; }
+
+        /* Right Panel - Simulation & Estimates */
+        .simulation-panel { 
+            background: #0f172a; 
+            padding: 20px; 
+            overflow-y: auto;
+        }
+
+        /* Cards */
+        .card { background: #1e293b; border-radius: 8px; padding: 16px; border: 1px solid #334155; margin-bottom: 12px; }
+        .card h2 { font-size: 11px; color: #64748b; margin-bottom: 12px; text-transform: uppercase; letter-spacing: 0.8px; font-weight: 600; }
+        .card.highlight { border-color: #3b82f6; box-shadow: 0 0 20px rgba(59,130,246,0.1); }
+
+        /* KPI Grid */
+        .kpi-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 12px; margin-bottom: 16px; }
+        .kpi { background: #1e293b; border: 1px solid #334155; border-radius: 8px; padding: 16px; text-align: center; }
+        .kpi .value { font-size: 28px; font-weight: 700; font-variant-numeric: tabular-nums; }
+        .kpi .label { font-size: 10px; color: #64748b; text-transform: uppercase; margin-top: 4px; }
+        .kpi.temp .value { color: #ef4444; }
+        .kpi.conv .value { color: #22c55e; }
+        .kpi.time .value { color: #3b82f6; }
+
+        /* Estimates */
+        .estimate-row { display: flex; justify-content: space-between; align-items: center; padding: 10px 0; border-bottom: 1px solid #1e293b; }
+        .estimate-row:last-child { border-bottom: none; }
+        .estimate-label { color: #94a3b8; font-size: 13px; }
+        .estimate-value { font-weight: 600; font-size: 14px; display: flex; align-items: center; gap: 8px; }
+        .trend { font-size: 10px; padding: 2px 6px; border-radius: 4px; }
+        .trend.up { background: #22c55e20; color: #22c55e; }
+        .trend.down { background: #3b82f620; color: #3b82f6; }
+        .trend.danger { background: #ef444420; color: #ef4444; }
+        .trend.warn { background: #f59e0b20; color: #f59e0b; }
+
+        /* Progress bars */
+        .progress-bar { height: 8px; background: #0f172a; border-radius: 4px; overflow: hidden; margin-top: 8px; }
+        .progress-fill { height: 100%; border-radius: 4px; transition: width 0.3s ease; }
+        .progress-fill.conv { background: #22c55e; }
+        .progress-fill.temp { background: #f59e0b; }
+
+        /* Recipe Steps */
+        .step-list { max-height: 200px; overflow-y: auto; }
+        .step { display: flex; align-items: center; gap: 10px; padding: 8px; border-radius: 6px; margin-bottom: 4px; font-size: 12px; }
+        .step.done { background: #052e16; color: #86efac; }
+        .step.now { background: #172554; color: #93c5fd; border: 1px solid #3b82f6; }
+        .step.wait { background: #0f172a; color: #475569; }
+        .step-num { width: 24px; height: 24px; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-weight: 700; font-size: 10px; }
+        .step.done .step-num { background: #22c55e; color: #052e16; }
+        .step.now .step-num { background: #3b82f6; color: white; }
+        .step.wait .step-num { background: #334155; color: #64748b; }
+
+        /* Chart container */
+        .chart-container { height: 150px; }
+
+        /* OPC UA Node List */
+        .node-list { display: grid; grid-template-columns: repeat(2, 1fr); gap: 8px; }
+        .node-item { background: #0f172a; border: 1px solid #334155; border-radius: 6px; padding: 10px; cursor: pointer; transition: all 0.15s; }
+        .node-item:hover { border-color: #475569; }
+        .node-item.active { border-color: #22c55e; background: #052e1640; }
+        .node-item .name { font-size: 12px; font-weight: 600; margin-bottom: 2px; }
+        .node-item .value { font-size: 18px; font-weight: 700; font-variant-numeric: tabular-nums; }
+        .node-item .tag { font-size: 9px; color: #64748b; font-family: monospace; }
+
+        /* Status bar */
+        .status-bar { 
+            background: #1e293b; 
+            padding: 8px 20px; 
+            font-size: 11px; 
+            color: #64748b; 
+            display: flex; 
+            gap: 24px; 
+            border-top: 1px solid #334155; 
+            position: fixed; 
+            bottom: 0; 
+            left: 0; 
+            right: 0;
+        }
+        .status-bar strong { color: #e2e8f0; }
+
+        /* Scrollbar */
+        ::-webkit-scrollbar { width: 6px; }
+        ::-webkit-scrollbar-track { background: #0f172a; }
+        ::-webkit-scrollbar-thumb { background: #334155; border-radius: 3px; }
+
+        /* Flow animation */
+        @keyframes flow {
+            0% { stroke-dashoffset: 20; }
+            100% { stroke-dashoffset: 0; }
+        }
+        .flowing { stroke-dasharray: 10 5; animation: flow 0.5s linear infinite; }
+    </style>
+</head>
+<body>
+
+<!-- HEADER -->
+<div class="header">
+    <h1>🔬 Reactor Digital Twin</h1>
+    <span id="phase-badge" class="phase-badge phase-IDLE">IDLE</span>
+    <span id="step-name" style="font-size: 12px; color: #94a3b8;"></span>
+    
+    <div class="header-controls">
+        <button class="btn btn-start" id="btn-start" onclick="sendCommand('START')">▶ START</button>
+        <button class="btn btn-stop" id="btn-stop" onclick="sendCommand('STOP')">■ STOP</button>
+        <button class="btn btn-reset" id="btn-reset" onclick="sendCommand('RESET')">↺ RESET</button>
+        <div style="width: 1px; height: 24px; background: #334155; margin: 0 8px;"></div>
+        <div class="status-dot err" id="status-dot"></div>
+        <span id="conn-text" style="font-size: 11px;">Disconnected</span>
+    </div>
+</div>
+
+<!-- MAIN SPLIT VIEW -->
+<div class="main-container">
+    
+    <!-- LEFT: Reactor Visualization -->
+    <div class="reactor-panel">
+        <div class="panel-title">Process Flow Diagram</div>
+        
+        <div class="reactor-svg-container">
+            <svg class="reactor-svg" viewBox="0 0 500 580" xmlns="http://www.w3.org/2000/svg">
+                <!-- Definitions -->
+                <defs>
+                    <pattern id="grid" width="20" height="20" patternUnits="userSpaceOnUse">
+                        <path d="M 20 0 L 0 0 0 20" fill="none" stroke="#1e293b" stroke-width="0.5"/>
+                    </pattern>
+                    <filter id="glow">
+                        <feGaussianBlur stdDeviation="2" result="coloredBlur"/>
+                        <feMerge><feMergeNode in="coloredBlur"/><feMergeNode in="SourceGraphic"/></feMerge>
+                    </filter>
+                </defs>
+                <rect width="500" height="580" fill="url(#grid)"/>
+                
+                <!-- Feed Lines - positioned to connect to reactor top -->
+                <!-- Component A Feed -->
+                <g class="input-point" id="input-component_a" onclick="selectInput('component_a')">
+                    <path id="component_a-pipe" d="M 100 40 L 100 125 L 150 125 L 150 155" stroke="#3b82f6" stroke-width="8" stroke-linecap="round" stroke-linejoin="round" fill="none"/>
+                    <circle cx="100" cy="40" r="14" fill="#1e293b" stroke="#3b82f6" stroke-width="3"/>
+                    <text x="100" y="44" text-anchor="middle" fill="#3b82f6" font-size="11" font-weight="bold">R</text>
+                    <text x="100" y="20" text-anchor="middle" fill="#64748b" font-size="9">COMPONENT_A</text>
+                    <circle id="component_a-flow" cx="150" cy="140" r="5" fill="#22c55e" opacity="0"/>
+                </g>
+                
+                <!-- Component B Feed -->
+                <g class="input-point" id="input-component_b" onclick="selectInput('component_b')">
+                    <path id="component_b-pipe" d="M 180 40 L 180 110 L 220 110 L 220 155" stroke="#f59e0b" stroke-width="8" stroke-linecap="round" stroke-linejoin="round" fill="none"/>
+                    <circle cx="180" cy="40" r="14" fill="#1e293b" stroke="#f59e0b" stroke-width="3"/>
+                    <text x="180" y="44" text-anchor="middle" fill="#f59e0b" font-size="11" font-weight="bold">H</text>
+                    <text x="180" y="20" text-anchor="middle" fill="#64748b" font-size="9">COMPONENT_B</text>
+                    <circle id="component_b-flow" cx="220" cy="140" r="5" fill="#22c55e" opacity="0"/>
+                </g>
+                
+                <!-- Solvent Feed -->
+                <g class="input-point" id="input-solvent" onclick="selectInput('solvent')">
+                    <path id="solvent-pipe" d="M 260 40 L 260 100 L 290 100 L 290 155" stroke="#06b6d4" stroke-width="8" stroke-linecap="round" stroke-linejoin="round" fill="none"/>
+                    <circle cx="260" cy="40" r="14" fill="#1e293b" stroke="#06b6d4" stroke-width="3"/>
+                    <text x="260" y="44" text-anchor="middle" fill="#06b6d4" font-size="11" font-weight="bold">S</text>
+                    <text x="260" y="20" text-anchor="middle" fill="#64748b" font-size="9">SOLVENT</text>
+                    <circle id="solvent-flow" cx="290" cy="140" r="5" fill="#22c55e" opacity="0"/>
+                </g>
+                
+                <g id="reactor-assembly" transform="translate(0,30)">
+                <!-- REACTOR VESSEL -->
+                <g id="reactor-vessel">
+                    <!-- Jacket (outer shell) -->
+                      <path d="M 70 110 L 70 340 Q 70 390 180 390 L 320 390 Q 430 390 430 340 L 430 110 Q 430 95 250 95 Q 70 95 70 110 Z" 
+                          fill="#334155" stroke="#64748b" stroke-width="2"/>
+                    
+                    <!-- Jacket fluid area -->
+                      <path id="jacket-area" d="M 75 115 L 75 335 Q 75 380 180 385 L 320 385 Q 425 380 425 335 L 425 115 Z" 
+                          fill="#0891b2" fill-opacity="0.3" stroke="none"/>
+                    
+                    <!-- Inner vessel wall -->
+                    <path d="M 110 120 L 110 310 Q 110 350 180 360 L 320 360 Q 390 350 390 310 L 390 120 Q 390 105 250 105 Q 110 105 110 120 Z" 
+                          fill="#0f172a" stroke="#475569" stroke-width="2"/>
+                    
+                    <!-- Liquid level -->
+                    <clipPath id="vesselClip">
+                        <path d="M 115 125 L 115 305 Q 115 345 180 355 L 320 355 Q 385 345 385 305 L 385 125 Z"/>
+                    </clipPath>
+                    <rect id="liquid-level" x="115" y="140" width="270" height="220" fill="#3b82f6" fill-opacity="0.8" clip-path="url(#vesselClip)"/>
+                    
+                    <!-- Agitator shaft -->
+                    <line x1="250" y1="70" x2="250" y2="280" stroke="#64748b" stroke-width="5"/>
+                    <!-- Agitator blades -->
+                    <g id="agitator-blades">
+                        <line x1="190" y1="240" x2="310" y2="250" stroke="#64748b" stroke-width="7" stroke-linecap="round"/>
+                        <line x1="190" y1="250" x2="310" y2="240" stroke="#64748b" stroke-width="7" stroke-linecap="round"/>
+                        <line x1="200" y1="175" x2="300" y2="185" stroke="#64748b" stroke-width="6" stroke-linecap="round"/>
+                        <line x1="200" y1="185" x2="300" y2="175" stroke="#64748b" stroke-width="6" stroke-linecap="round"/>
+                    </g>
+                    <!-- Motor -->
+                    <rect x="230" y="55" width="40" height="20" rx="3" fill="#334155" stroke="#64748b" stroke-width="1"/>
+                    <text x="250" y="68" text-anchor="middle" fill="#94a3b8" font-size="8">M</text>
+                </g>
+                
+                <!-- Temperature Sensor -->
+                <g class="input-point" id="input-temperature" onclick="selectInput('temperature')">
+                    <line x1="390" y1="200" x2="450" y2="200" stroke="#ef4444" stroke-width="3"/>
+                    <rect x="450" y="182" width="45" height="36" rx="4" fill="#1e293b" stroke="#ef4444" stroke-width="2"/>
+                    <text x="472" y="196" text-anchor="middle" fill="#94a3b8" font-size="8">TEMP</text>
+                    <text x="472" y="210" text-anchor="middle" fill="#ef4444" font-size="12" font-weight="bold" id="svg-temp">--°C</text>
+                </g>
+                
+                <!-- Pressure Sensor -->
+                <g class="input-point" id="input-pressure" onclick="selectInput('pressure')">
+                    <line x1="390" y1="270" x2="450" y2="270" stroke="#a855f7" stroke-width="3"/>
+                    <rect x="450" y="252" width="45" height="36" rx="4" fill="#1e293b" stroke="#a855f7" stroke-width="2"/>
+                    <text x="472" y="266" text-anchor="middle" fill="#94a3b8" font-size="8">PRESS</text>
+                    <text x="472" y="280" text-anchor="middle" fill="#a855f7" font-size="11" font-weight="bold" id="svg-press">--bar</text>
+                </g>
+                
+                <!-- Jacket Temperature Control -->
+                <g class="input-point" id="input-jacket" onclick="selectInput('jacket')">
+                    <rect x="5" y="200" width="55" height="55" rx="6" fill="#1e293b" stroke="#f59e0b" stroke-width="2"/>
+                    <text x="32" y="218" text-anchor="middle" fill="#94a3b8" font-size="8">JACKET</text>
+                    <text x="32" y="235" text-anchor="middle" fill="#f59e0b" font-size="14" font-weight="bold" id="svg-jacket">--°C</text>
+                    <text x="32" y="248" text-anchor="middle" fill="#64748b" font-size="7">SETPOINT</text>
+                    <!-- Heat arrows -->
+                    <path d="M 60 215 L 68 215 M 60 227 L 68 227 M 60 239 L 68 239" stroke="#f59e0b" stroke-width="2" stroke-linecap="round"/>
+                </g>
+                
+                <!-- Product Outlet -->
+                <g class="input-point" id="input-product" onclick="selectInput('product')">
+                    <path d="M 250 390 L 250 450" stroke="#22c55e" stroke-width="10" stroke-linecap="round"/>
+                    <rect x="200" y="455" width="100" height="40" rx="6" fill="#1e293b" stroke="#22c55e" stroke-width="2"/>
+                    <text x="250" y="475" text-anchor="middle" fill="#22c55e" font-size="11" font-weight="bold">PRODUCT</text>
+                    <text x="250" y="490" text-anchor="middle" fill="#94a3b8" font-size="10" id="svg-mass">-- kg</text>
+                </g>
+                
+                <!-- Conversion Display (center) -->
+                <g id="conversion-display">
+                    <circle cx="250" cy="290" r="32" fill="#0f172a" stroke="#22c55e" stroke-width="2" opacity="0.95"/>
+                    <text x="250" y="286" text-anchor="middle" fill="#22c55e" font-size="16" font-weight="bold" id="svg-conv">--%</text>
+                    <text x="250" y="302" text-anchor="middle" fill="#64748b" font-size="8">CONVERSION</text>
+                </g>
+                
+                <!-- OPC UA indicator -->
+                <g transform="translate(370, 420)">
+                    <rect width="120" height="45" rx="6" fill="#1e293b" stroke="#334155"/>
+                    <text x="60" y="18" text-anchor="middle" fill="#64748b" font-size="9">OPC UA Server</text>
+                    <text x="60" y="33" text-anchor="middle" fill="#22c55e" font-size="10" font-weight="bold">:4840</text>
+                    <circle cx="100" cy="25" r="6" id="opc-indicator" fill="#22c55e"/>
+                </g>
+                </g>
+            </svg>
+        </div>
+        
+        <!-- Input Details Panel -->
+        <div class="input-details" id="input-details">
+            <h3>
+                <span class="icon" id="detail-icon" style="background: #3b82f6; color: white;">R</span>
+                <span id="detail-title">Component A Feed</span>
+            </h3>
+            <div class="current-value" id="detail-value">0.000 kg/s</div>
+            <div class="opc-tag" id="detail-opc">Reactor/Actuators/FeedComponentA_kgs</div>
+            <div class="timeline-chart">
+                <canvas id="detail-chart"></canvas>
+            </div>
+            <div class="override-row">
+                <input type="number" id="override-value" step="0.1" placeholder="Override value">
+                <button class="btn btn-start" style="font-size: 11px; padding: 6px 12px;" onclick="applyOverride()">Apply</button>
+                <button class="btn btn-reset" style="font-size: 11px; padding: 6px 12px;" onclick="clearOverride()">Clear</button>
+            </div>
+        </div>
+    </div>
+    
+    <!-- RIGHT: Simulation & Estimates -->
+    <div class="simulation-panel">
+        <div class="panel-title">Simulation & Predictions</div>
+        
+        <!-- Live KPIs -->
+        <div class="kpi-grid">
+            <div class="kpi temp">
+                <div class="value" id="kpi-temp">--</div>
+                <div class="label">Temperature °C</div>
+            </div>
+            <div class="kpi conv">
+                <div class="value" id="kpi-conv">--</div>
+                <div class="label">Conversion %</div>
+            </div>
+            <div class="kpi time">
+                <div class="value" id="kpi-time">--</div>
+                <div class="label">Elapsed (s)</div>
+            </div>
+        </div>
+        
+        <!-- Estimates Card -->
+        <div class="card highlight">
+            <h2>🎯 Live Estimates</h2>
+            <div class="estimate-row">
+                <span class="estimate-label">Est. Time to 95% Conversion</span>
+                <span class="estimate-value" id="est-time-conv">-- min</span>
+            </div>
+            <div class="estimate-row">
+                <span class="estimate-label">Est. Peak Temperature</span>
+                <span class="estimate-value" id="est-peak-temp">-- °C</span>
+            </div>
+            <div class="estimate-row">
+                <span class="estimate-label">Est. Gel Point (α=0.6)</span>
+                <span class="estimate-value" id="est-gel">-- s</span>
+            </div>
+            <div class="estimate-row">
+                <span class="estimate-label">Runaway Risk</span>
+                <span class="estimate-value" id="est-runaway">--</span>
+            </div>
+            <div class="estimate-row">
+                <span class="estimate-label">Heat Generation Rate</span>
+                <span class="estimate-value" id="est-rate">-- K/s</span>
+            </div>
+        </div>
+        
+        <!-- Conversion Progress -->
+        <div class="card">
+            <h2>Conversion Progress</h2>
+            <div style="display: flex; justify-content: space-between; margin-bottom: 4px;">
+                <span style="font-size: 12px; color: #94a3b8;">0%</span>
+                <span style="font-size: 14px; font-weight: 600;" id="conv-percent">0%</span>
+                <span style="font-size: 12px; color: #94a3b8;">100%</span>
+            </div>
+            <div class="progress-bar">
+                <div class="progress-fill conv" id="conv-bar" style="width: 0%;"></div>
+            </div>
+            <div style="margin-top: 8px; font-size: 11px; color: #64748b; display: flex; justify-content: space-between;">
+                <span>Gel point at 60%</span>
+                <span id="gel-status">Not reached</span>
+            </div>
+        </div>
+        
+        <!-- Temperature Chart -->
+        <div class="card">
+            <h2>Temperature Trend</h2>
+            <div class="chart-container">
+                <canvas id="chart-temp"></canvas>
+            </div>
+        </div>
+        
+        <!-- Data Package Playback -->
+        <div class="card" id="data-package-card">
+            <h2>Data Packages (Playback)</h2>
+            <div id="playback-indicator" style="display: none; background: #172554; border: 1px solid #3b82f6; border-radius: 6px; padding: 8px 12px; margin-bottom: 8px; font-size: 11px; color: #93c5fd;">
+                PLAYBACK MODE ACTIVE: <strong id="playback-name">--</strong>
+                <button class="btn btn-stop" style="font-size: 10px; padding: 3px 8px; margin-left: 8px;" onclick="deactivateDataPackage()">Deactivate</button>
+            </div>
+            <div id="data-package-list" style="margin-bottom: 8px;">
+                <div style="color: #64748b; font-size: 12px;">Loading...</div>
+            </div>
+        </div>
+
+        <!-- Recipe Selection -->
+        <div class="card">
+            <h2>Available Recipes</h2>
+            <div id="recipe-list" style="margin-bottom: 12px;">
+                <div style="color: #64748b; font-size: 12px;">Loading...</div>
+            </div>
+            <div style="font-size: 11px; color: #64748b;">Current: <strong id="current-recipe">--</strong></div>
+        </div>
+        
+        <!-- Recipe Progress -->
+        <div class="card">
+            <h2>Recipe Steps</h2>
+            <div class="step-list" id="step-list">
+                <div class="step wait"><span class="step-num">1</span>Loading...</div>
+            </div>
+        </div>
+        
+        <!-- OPC UA Nodes -->
+        <div class="card">
+            <h2>OPC UA Live Values</h2>
+            <div class="node-list" id="opc-nodes">
+                <div class="node-item" onclick="selectInput('temperature')">
+                    <div class="name">Temperature</div>
+                    <div class="value" id="opc-temp">-- K</div>
+                    <div class="tag">Sensors/Temperature_K</div>
+                </div>
+                <div class="node-item" onclick="selectInput('jacket')">
+                    <div class="name">Jacket Temp</div>
+                    <div class="value" id="opc-jacket">-- K</div>
+                    <div class="tag">Actuators/JacketSetpoint_K</div>
+                </div>
+                <div class="node-item" onclick="selectInput('pressure')">
+                    <div class="name">Pressure</div>
+                    <div class="value" id="opc-press">-- bar</div>
+                    <div class="tag">Sensors/Pressure_bar</div>
+                </div>
+                <div class="node-item">
+                    <div class="name">Conversion</div>
+                    <div class="value" id="opc-conv">--</div>
+                    <div class="tag">Sensors/Conversion</div>
+                </div>
+                <div class="node-item">
+                    <div class="name">Viscosity</div>
+                    <div class="value" id="opc-visc">-- Pa·s</div>
+                    <div class="tag">Sensors/Viscosity_Pas</div>
+                </div>
+                <div class="node-item">
+                    <div class="name">Total Mass</div>
+                    <div class="value" id="opc-mass">-- kg</div>
+                    <div class="tag">Sensors/MassTotal_kg</div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- STATUS BAR -->
+<div class="status-bar">
+    <span>Phase: <strong id="sb-phase">IDLE</strong></span>
+    <span>Elapsed: <strong id="sb-elapsed">0</strong>s</span>
+    <span>Step: <strong id="sb-step">--</strong></span>
+    <span>dT/dt: <strong id="sb-dtdt">0.000</strong> K/s</span>
+    <span style="margin-left: auto;">OPC UA: <strong>opc.tcp://localhost:4840</strong></span>
+</div>
+
+<script>
+// ==================== State ====================
+const apiBaseUrl = window.location.origin;
+let connected = false;
+let selectedInput = null;
+let recipeData = null;
+let inputHistory = { component_a: [], component_b: [], solvent: [], jacket: [], temperature: [], pressure: [] };
+const MAX_HISTORY = 120;
+const chartData = { labels: [], temp: [], jacket: [] };
+
+// Input metadata
+const inputs = {
+    component_a: { name: 'Component A Feed', icon: 'A', color: '#3b82f6', unit: 'kg/s', opc: 'Actuators/FeedComponentA_kgs', key: 'feed_rate_component_a', actuator: 'feed_component_a' },
+    component_b: { name: 'Component B Feed', icon: 'B', color: '#f59e0b', unit: 'kg/s', opc: 'Actuators/FeedComponentB_kgs', key: 'feed_rate_component_b', actuator: 'feed_component_b' },
+    solvent: { name: 'Solvent Feed', icon: 'S', color: '#06b6d4', unit: 'kg/s', opc: 'Actuators/FeedSolvent_kgs', key: 'feed_rate_solvent', actuator: 'feed_solvent' },
+    jacket: { name: 'Jacket Temperature', icon: 'J', color: '#f59e0b', unit: 'K', opc: 'Actuators/JacketSetpoint_K', key: 'jacket_temperature_K', actuator: 'jacket_temp' },
+    temperature: { name: 'Reactor Temperature', icon: 'T', color: '#ef4444', unit: 'K', opc: 'Sensors/Temperature_K', key: 'temperature_K', actuator: null },
+    pressure: { name: 'Reactor Pressure', icon: 'P', color: '#a855f7', unit: 'bar', opc: 'Sensors/Pressure_bar', key: 'pressure_bar', actuator: null },
+    product: { name: 'Product Mass', icon: '⬇', color: '#22c55e', unit: 'kg', opc: 'Sensors/MassTotal_kg', key: 'mass_total_kg', actuator: null }
+};
+
+// Channel name mapping (recipe channel -> input key)
+const channelMap = {
+    'feed_component_a': 'component_a',
+    'feed_component_b': 'component_b',
+    'feed_solvent': 'solvent',
+    'jacket_temp': 'jacket'
+};
+
+let detailChart = null;
+
+// ==================== Input Selection ====================
+function selectInput(id) {
+    selectedInput = id;
+    const input = inputs[id];
+    if (!input) return;
+    
+    // Update all input points
+    document.querySelectorAll('.input-point').forEach(el => el.classList.remove('active'));
+    document.getElementById('input-' + id)?.classList.add('active');
+    
+    // Show details panel
+    const panel = document.getElementById('input-details');
+    panel.classList.add('visible');
+    
+    document.getElementById('detail-icon').style.background = input.color;
+    document.getElementById('detail-icon').textContent = input.icon;
+    document.getElementById('detail-title').textContent = input.name;
+    document.getElementById('detail-opc').textContent = 'Reactor/' + input.opc;
+    
+    // Update chart with recipe profile
+    updateDetailChart(id);
+}
+
+function updateDetailChart(id) {
+    const ctx = document.getElementById('detail-chart');
+    const input = inputs[id];
+    
+    if (detailChart) detailChart.destroy();
+    
+    // Find channel name for this input
+    let channelName = null;
+    for (const [ch, inputId] of Object.entries(channelMap)) {
+        if (inputId === id) { channelName = ch; break; }
+    }
+    
+    // Build timeline data from recipe
+    let timelineData = [];
+    let timelineLabels = [];
+    
+    if (recipeData && channelName) {
+        let t = 0;
+        for (const step of recipeData.steps) {
+            const profile = step.profiles[channelName];
+            if (profile) {
+                // Sample the profile at intervals
+                const numSamples = Math.max(2, Math.floor(step.duration / 30));
+                for (let i = 0; i <= numSamples; i++) {
+                    const frac = i / numSamples;
+                    const stepTime = t + frac * step.duration;
+                    let value;
+                    if (profile.type === 'constant') {
+                        value = profile.start_value;
+                    } else if (profile.type === 'linear_ramp') {
+                        value = profile.start_value + (profile.end_value - profile.start_value) * frac;
+                    } else {
+                        value = profile.start_value * Math.pow(profile.end_value / profile.start_value, frac);
+                    }
+                    timelineLabels.push(stepTime.toFixed(0));
+                    timelineData.push(value);
+                }
+            }
+            t += step.duration;
+        }
+    }
+    
+    // Fallback to history if no recipe profile
+    if (timelineData.length === 0) {
+        const history = inputHistory[id] || [];
+        timelineLabels = history.map((_, i) => i);
+        timelineData = history;
+    }
+    
+    detailChart = new Chart(ctx, {
+        type: 'line',
+        data: {
+            labels: timelineLabels,
+            datasets: [{
+                label: 'Profile',
+                data: timelineData,
+                borderColor: input?.color || '#3b82f6',
+                borderWidth: 2,
+                pointRadius: 0,
+                tension: 0.3,
+                fill: true,
+                backgroundColor: (input?.color || '#3b82f6') + '20'
+            }]
+        },
+        options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            animation: { duration: 0 },
+            plugins: { legend: { display: false } },
+            scales: {
+                x: { display: true, ticks: { color: '#475569', maxTicksLimit: 6, font: { size: 9 } }, grid: { color: '#1e293b' }, title: { display: true, text: 'Time (s)', color: '#64748b', font: { size: 9 } } },
+                y: { ticks: { color: '#64748b', font: { size: 10 } }, grid: { color: '#1e293b' } }
+            }
+        }
+    });
+}
+
+// ==================== Commands ====================
+async function sendCommand(cmd) {
+    try {
+        await fetch(`${apiBaseUrl}/api/command`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ command: cmd })
+        });
+    } catch (e) { console.error('Command error:', e); }
+}
+
+async function applyOverride() {
+    if (!selectedInput) return;
+    const input = inputs[selectedInput];
+    if (!input.actuator) {
+        alert('This is a sensor, not an actuator. Cannot override.');
+        return;
+    }
+    const value = parseFloat(document.getElementById('override-value').value);
+    if (isNaN(value)) {
+        alert('Please enter a valid number');
+        return;
+    }
+    
+    try {
+        await fetch(`${apiBaseUrl}/api/actuator/override`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ actuator: input.actuator, value: value })
+        });
+    } catch (e) { console.error('Override error:', e); }
+}
+
+async function clearOverride() {
+    try {
+        await fetch(`${apiBaseUrl}/api/actuator/override`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ actuator: 'clear', value: 0 })
+        });
+    } catch (e) { console.error('Clear override error:', e); }
+}
+
+// ==================== Charts ====================
+// Store the current time position for the NOW marker
+let currentTimePosition = 0;
+let totalRecipeDuration = 3180; // Default, will be updated from recipe
+
+// Plugin to draw a vertical "NOW" marker at fixed 33% from left edge
+const nowMarkerPlugin = {
+    id: 'nowMarker',
+    afterDraw(chart) {
+        // Only draw on the main temperature chart
+        if (chart.canvas.id !== 'chart-temp') return;
+        const { ctx, chartArea } = chart;
+        if (!chartArea) return;
+        
+        // Fixed position at 33% from left edge
+        const xPos = chartArea.left + chartArea.width * 0.33;
+        
+        ctx.save();
+        ctx.strokeStyle = '#22c55e';
+        ctx.lineWidth = 2;
+        ctx.setLineDash([6, 4]);
+        ctx.beginPath();
+        ctx.moveTo(xPos, chartArea.top);
+        ctx.lineTo(xPos, chartArea.bottom);
+        ctx.stroke();
+        
+        // Label
+        ctx.fillStyle = '#22c55e';
+        ctx.font = 'bold 10px sans-serif';
+        ctx.textAlign = 'center';
+        ctx.fillText('NOW', xPos, chartArea.top - 4);
+        ctx.restore();
+    }
+};
+Chart.register(nowMarkerPlugin);
+
+const chartOpts = {
+    responsive: true,
+    maintainAspectRatio: false,
+    animation: { duration: 0 },
+    plugins: {
+        legend: { labels: { color: '#94a3b8', boxWidth: 12, font: { size: 10 } } }
+    },
+    scales: {
+        x: {
+            type: 'linear',
+            display: true,
+            title: { display: true, text: 'Time (s)', color: '#64748b', font: { size: 10 } },
+            ticks: {
+                color: '#94a3b8',
+                maxTicksLimit: 12,
+                callback: function(value) {
+                    return Math.round(value) + 's';
+                }
+            },
+            grid: { color: '#1e293b' },
+            min: 0,
+            max: 120
+        },
+        y: { 
+            title: { display: true, text: 'Temperature (°C)', color: '#64748b', font: { size: 10 } },
+            ticks: { color: '#94a3b8' }, 
+            grid: { color: '#1e293b' },
+            suggestedMin: 20,
+            suggestedMax: 200
+        }
+    }
+};
+
+const tempChart = new Chart(document.getElementById('chart-temp'), {
+    type: 'line',
+    data: {
+        datasets: [
+            { 
+                label: 'Reactor Temp', 
+                data: [], 
+                borderColor: '#ef4444', 
+                backgroundColor: '#ef444420',
+                borderWidth: 2, 
+                pointRadius: 0, 
+                tension: 0.3,
+                fill: false
+            },
+            { 
+                label: 'Jacket Temp', 
+                data: [], 
+                borderColor: '#3b82f6', 
+                backgroundColor: '#3b82f620',
+                borderWidth: 2, 
+                pointRadius: 0, 
+                tension: 0.3,
+                borderDash: [5, 5],
+                fill: false
+            },
+            { 
+                label: 'Recipe Setpoint', 
+                data: [], 
+                borderColor: '#22c55e', 
+                borderWidth: 1, 
+                pointRadius: 0, 
+                tension: 0,
+                borderDash: [2, 2],
+                fill: false
+            }
+        ]
+    },
+    options: chartOpts
+});
+
+// ==================== Recipe ====================
+async function loadRecipes() {
+    try {
+        const r = await fetch(`${apiBaseUrl}/api/recipes`);
+        const data = await r.json();
+        const el = document.getElementById('recipe-list');
+        el.innerHTML = data.recipes.map(recipe => {
+            const isCurrent = recipe.filename === data.current_file || recipe.name === data.current;
+            return `<div style="padding: 8px; margin-bottom: 4px; background: ${isCurrent ? '#172554' : '#0f172a'}; border: 1px solid ${isCurrent ? '#3b82f6' : '#334155'}; border-radius: 6px; font-size: 12px;">
+                <div style="font-weight: 600; color: ${isCurrent ? '#93c5fd' : '#e2e8f0'};">${recipe.name}</div>
+                <div style="font-size: 10px; color: #64748b; margin-top: 2px;">${recipe.steps} steps · ${(recipe.total_duration / 60).toFixed(0)} min</div>
+            </div>`;
+        }).join('');
+        document.getElementById('current-recipe').textContent = data.current || '--';
+    } catch (e) { 
+        document.getElementById('recipe-list').innerHTML = '<div style="color: #ef4444; font-size: 11px;">Failed to load recipes</div>';
+    }
+}
+
+async function loadRecipeSteps() {
+    try {
+        const r = await fetch(`${apiBaseUrl}/api/recipe/current`);
+        recipeData = await r.json();
+        const el = document.getElementById('step-list');
+        el.innerHTML = recipeData.steps.map((s, i) => {
+            let cls = 'wait';
+            if (s.is_completed) cls = 'done';
+            else if (s.is_current) cls = 'now';
+            return `<div class="step ${cls}"><span class="step-num">${i + 1}</span><span>${s.name}</span><span style="margin-left:auto;font-size:11px;color:#64748b;">${s.duration}s</span></div>`;
+        }).join('');
+        
+        // Refresh detail chart if visible
+        if (selectedInput) updateDetailChart(selectedInput);
+    } catch (e) { console.error('Recipe error:', e); }
+}
+
+// ==================== Estimates ====================
+function updateEstimates(d) {
+    const conv = d.conversion;
+    const temp = d.temperature_K;
+    const tempC = d.temperature_C;
+    const dtdt = d.dt_dt;
+    const elapsed = d.recipe_elapsed_s;
+    
+    // Time to 95% conversion
+    if (conv > 0.01 && conv < 0.95 && elapsed > 0) {
+        const rate = conv / elapsed;
+        const remaining = (0.95 - conv) / rate;
+        document.getElementById('est-time-conv').textContent = (remaining / 60).toFixed(1) + ' min';
+    } else if (conv >= 0.95) {
+        document.getElementById('est-time-conv').innerHTML = '<span style="color:#22c55e">Complete ✓</span>';
+    } else {
+        document.getElementById('est-time-conv').textContent = '-- min';
+    }
+    
+    // Peak temperature estimate
+    const peakEst = tempC + dtdt * 120; // Extrapolate 2 min
+    let trendHtml = '';
+    if (dtdt > 1.0) trendHtml = '<span class="trend danger">↑ FAST</span>';
+    else if (dtdt > 0.3) trendHtml = '<span class="trend warn">↑ rising</span>';
+    else if (dtdt > 0) trendHtml = '<span class="trend up">↑</span>';
+    else if (dtdt < -0.1) trendHtml = '<span class="trend down">↓ cooling</span>';
+    document.getElementById('est-peak-temp').innerHTML = peakEst.toFixed(0) + '°C ' + trendHtml;
+    
+    // Gel point
+    if (conv < 0.6 && conv > 0.01 && elapsed > 0) {
+        const rate = conv / elapsed;
+        const gelTime = 0.6 / rate;
+        document.getElementById('est-gel').textContent = gelTime.toFixed(0) + 's';
+        document.getElementById('gel-status').textContent = 'ETA: ' + (gelTime - elapsed).toFixed(0) + 's';
+    } else if (conv >= 0.6) {
+        document.getElementById('est-gel').innerHTML = '<span style="color:#22c55e">Passed ✓</span>';
+        document.getElementById('gel-status').textContent = 'Reached';
+    } else {
+        document.getElementById('est-gel').textContent = '-- s';
+    }
+    
+    // Runaway risk
+    let risk = 'LOW';
+    let riskColor = '#22c55e';
+    if (dtdt > 1.5 || temp > 453) { risk = 'HIGH'; riskColor = '#ef4444'; }
+    else if (dtdt > 0.8 || temp > 423) { risk = 'MODERATE'; riskColor = '#f59e0b'; }
+    else if (dtdt > 0.3) { risk = 'ELEVATED'; riskColor = '#eab308'; }
+    document.getElementById('est-runaway').innerHTML = `<span style="color:${riskColor};font-weight:700">${risk}</span>`;
+    
+    // Heat generation rate
+    document.getElementById('est-rate').textContent = dtdt.toFixed(3) + ' K/s';
+}
+
+// ==================== Polling ====================
+async function poll() {
+    try {
+        const resp = await fetch(`${apiBaseUrl}/api/state`);
+        if (!resp.ok) throw new Error('API returned ' + resp.status);
+        const d = await resp.json();
+        
+        // Only mark as connected if we actually got valid data
+        if (d && typeof d.temperature_K === 'number') {
+            connected = true;
+            document.getElementById('status-dot').className = 'status-dot ok';
+            document.getElementById('conn-text').textContent = 'Connected';
+            document.getElementById('opc-indicator').setAttribute('fill', '#22c55e');
+        } else {
+            throw new Error('Invalid state data');
+        }
+        
+        // Phase badge
+        const badge = document.getElementById('phase-badge');
+        badge.textContent = d.phase;
+        badge.className = 'phase-badge phase-' + d.phase;
+        document.getElementById('step-name').textContent = d.recipe_step;
+        
+        // Buttons
+        document.getElementById('btn-start').disabled = d.simulation_running || d.phase === 'RUNAWAY_ALARM';
+        document.getElementById('btn-stop').disabled = !d.simulation_running;
+        document.getElementById('btn-reset').disabled = d.phase !== 'RUNAWAY_ALARM' && d.phase !== 'DISCHARGING' && d.phase !== 'IDLE';
+        
+        // KPIs
+        document.getElementById('kpi-temp').textContent = d.temperature_C.toFixed(1);
+        document.getElementById('kpi-conv').textContent = (d.conversion * 100).toFixed(1);
+        document.getElementById('kpi-time').textContent = d.recipe_elapsed_s.toFixed(0);
+        
+        // SVG updates
+        document.getElementById('svg-temp').textContent = d.temperature_C.toFixed(0) + '°C';
+        document.getElementById('svg-press').textContent = d.pressure_bar.toFixed(2);
+        document.getElementById('svg-jacket').textContent = (d.jacket_temperature_K - 273.15).toFixed(0) + '°C';
+        document.getElementById('svg-conv').textContent = (d.conversion * 100).toFixed(0) + '%';
+        document.getElementById('svg-mass').textContent = d.mass_total_kg.toFixed(1) + ' kg';
+        
+        // Flow indicators and animations - only show when simulation is running
+        const isRunning = d.simulation_running === true;
+        const component_aFlowing = isRunning && d.feed_rate_component_a > 0.001;
+        const component_bFlowing = isRunning && d.feed_rate_component_b > 0.001;
+        const solventFlowing = isRunning && d.feed_rate_solvent > 0.001;
+        
+        document.getElementById('component_a-flow').setAttribute('opacity', component_aFlowing ? '1' : '0');
+        document.getElementById('component_b-flow').setAttribute('opacity', component_bFlowing ? '1' : '0');
+        document.getElementById('solvent-flow').setAttribute('opacity', solventFlowing ? '1' : '0');
+        
+        document.getElementById('component_a-pipe').classList.toggle('flowing', component_aFlowing);
+        document.getElementById('component_b-pipe').classList.toggle('flowing', component_bFlowing);
+        document.getElementById('solvent-pipe').classList.toggle('flowing', solventFlowing);
+        
+        // Liquid level
+        const levelHeight = Math.min(220, Math.max(20, (d.mass_total_kg / 12) * 220));
+        document.getElementById('liquid-level').setAttribute('y', 360 - levelHeight);
+        document.getElementById('liquid-level').setAttribute('height', levelHeight);
+        
+        // Jacket color (blue=cold, orange=hot)
+        const jacketTemp = d.jacket_temperature_K - 273.15;
+        const hue = Math.max(0, Math.min(200, 200 - (jacketTemp - 20) * 2.5));
+        document.getElementById('jacket-area').style.fill = `hsla(${hue}, 70%, 40%, 0.3)`;
+        
+        // Conversion progress
+        document.getElementById('conv-percent').textContent = (d.conversion * 100).toFixed(1) + '%';
+        document.getElementById('conv-bar').style.width = (d.conversion * 100) + '%';
+        
+        // OPC nodes
+        document.getElementById('opc-temp').textContent = d.temperature_K.toFixed(1) + ' K';
+        document.getElementById('opc-jacket').textContent = d.jacket_temperature_K.toFixed(1) + ' K';
+        document.getElementById('opc-press').textContent = d.pressure_bar.toFixed(3) + ' bar';
+        document.getElementById('opc-conv').textContent = d.conversion.toFixed(4);
+        document.getElementById('opc-visc').textContent = d.viscosity_Pas >= 100 ? 'GEL' : d.viscosity_Pas.toFixed(1) + ' Pa·s';
+        document.getElementById('opc-mass').textContent = d.mass_total_kg.toFixed(2) + ' kg';
+        
+        // Status bar
+        document.getElementById('sb-phase').textContent = d.phase;
+        document.getElementById('sb-elapsed').textContent = d.recipe_elapsed_s.toFixed(0);
+        document.getElementById('sb-step').textContent = d.recipe_step;
+        document.getElementById('sb-dtdt').textContent = d.dt_dt.toFixed(3);
+        
+        // Update detail value if input selected
+        if (selectedInput) {
+            const input = inputs[selectedInput];
+            const val = d[input.key];
+            if (val !== undefined) {
+                let displayVal = val;
+                if (input.unit === 'K') displayVal = val.toFixed(1);
+                else if (input.unit === 'kg/s') displayVal = val.toFixed(4);
+                else if (input.unit === 'bar') displayVal = val.toFixed(3);
+                else if (input.unit === 'kg') displayVal = val.toFixed(2);
+                else displayVal = val.toFixed(3);
+                document.getElementById('detail-value').textContent = displayVal + ' ' + input.unit;
+            }
+        }
+        
+        // History for detail charts
+        inputHistory.component_a.push(d.feed_rate_component_a);
+        inputHistory.component_b.push(d.feed_rate_component_b);
+        inputHistory.solvent.push(d.feed_rate_solvent);
+        inputHistory.jacket.push(d.jacket_temperature_K);
+        inputHistory.temperature.push(d.temperature_K);
+        inputHistory.pressure.push(d.pressure_bar);
+        Object.values(inputHistory).forEach(arr => { if (arr.length > MAX_HISTORY) arr.shift(); });
+        
+        // Main chart – accumulate data as {x, y} points
+        const timeVal = parseFloat(d.recipe_elapsed_s) || 0;
+        currentTimePosition = timeVal;
+        
+        // Clear chart data when simulation resets (phase is IDLE and time is 0)
+        if (d.phase === 'IDLE' && timeVal === 0 && chartData.temp.length > 0) {
+            chartData.temp = [];
+            chartData.jacket = [];
+        }
+        
+        // Only add data points when simulation is running
+        if (d.simulation_running) {
+            chartData.temp.push({ x: timeVal, y: d.temperature_C });
+            chartData.jacket.push({ x: timeVal, y: d.jacket_temperature_K - 273.15 });
+        }
+        
+        // Limit data points to prevent memory issues
+        if (chartData.temp.length > 600) {
+            chartData.temp.shift();
+            chartData.jacket.shift();
+        }
+
+        // Update chart datasets
+        tempChart.data.datasets[0].data = chartData.temp;
+        tempChart.data.datasets[1].data = chartData.jacket;
+        
+        // Build recipe setpoint line (future prediction based on recipe)
+        if (recipeData && recipeData.steps) {
+            const setpointData = [];
+            let t = 0;
+            for (const step of recipeData.steps) {
+                const profile = step.profiles?.jacket_temp;
+                if (profile) {
+                    const startVal = profile.start_value - 273.15; // Convert K to C
+                    const endVal = profile.end_value - 273.15;
+                    setpointData.push({ x: t, y: startVal });
+                    setpointData.push({ x: t + step.duration, y: endVal });
+                }
+                t += step.duration;
+            }
+            tempChart.data.datasets[2].data = setpointData;
+            totalRecipeDuration = t;
+        }
+        
+        // Adjust x-axis: show a sliding window that keeps current time at ~33% from left
+        // Window shows past data on left, future predictions on right
+        let windowSize, windowStart, windowEnd;
+        
+        if (!d.simulation_running || timeVal < 10) {
+            // When idle or just started, show fixed window 0-120s
+            windowStart = 0;
+            windowEnd = 120;
+        } else {
+            // When running, slide window to keep current time at 33% from left
+            windowSize = Math.max(120, Math.min(300, totalRecipeDuration * 0.1));
+            windowStart = Math.max(0, timeVal - windowSize * 0.33);
+            windowEnd = windowStart + windowSize;
+        }
+        
+        tempChart.options.scales.x.min = windowStart;
+        tempChart.options.scales.x.max = windowEnd;
+        
+        tempChart.update('none'); // 'none' mode for better performance
+        
+        // Estimates
+        updateEstimates(d);
+        
+        // Recipe (every 5 polls)
+        if (chartData.labels.length % 5 === 0) loadRecipeSteps();
+        
+    } catch (e) {
+        connected = false;
+        document.getElementById('status-dot').className = 'status-dot err';
+        document.getElementById('conn-text').textContent = 'Disconnected';
+        document.getElementById('opc-indicator').setAttribute('fill', '#ef4444');
+        
+        // Reset displays to show no data
+        document.getElementById('kpi-temp').textContent = '--';
+        document.getElementById('kpi-conv').textContent = '--';
+        document.getElementById('kpi-time').textContent = '--';
+        document.getElementById('svg-temp').textContent = '--°C';
+        document.getElementById('svg-press').textContent = '--bar';
+        document.getElementById('svg-jacket').textContent = '--°C';
+        document.getElementById('svg-conv').textContent = '--%';
+        document.getElementById('svg-mass').textContent = '-- kg';
+    }
+}
+
+// ==================== Init ====================
+// Start with disconnected state until we verify connection
+document.getElementById('status-dot').className = 'status-dot err';
+document.getElementById('conn-text').textContent = 'Connecting...';
+document.getElementById('opc-indicator').setAttribute('fill', '#f59e0b');
+
+setInterval(poll, 1000);
+poll();
+loadRecipes();
+loadRecipeSteps();
+</script>
+</body>
+</html>

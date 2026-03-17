@@ -1,0 +1,23 @@
+name: "DCS Jacket Override"
+description: >
+  Starts a batch, then at t=30s the DCS operator overrides
+  the jacket setpoint to 370 K (above the recipe's ramp).
+  At t=90s the override is removed and the recipe resumes control.
+  Demonstrates actuator override via OPC UA / web API.
+
+events:
+  - at: 2.0
+    action: command
+    value: START
+    log: "Operator sends START command"
+
+  # Override jacket to 370 K during heating phase
+  - at: 30.0
+    action: set_jacket
+    value: 370.0
+    log: "DCS overrides jacket setpoint to 370 K"
+
+  # Remove override — return to recipe control
+  - at: 90.0
+    action: clear_jacket
+    log: "DCS removes jacket override, recipe resumes"
