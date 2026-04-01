@@ -46,6 +46,17 @@ const dynamicSensor = computed(() => {
     return sensorConfig.availableNodes.find(n => n.id === dynamicSensorId.value) || null
 })
 
+// Reverse-lookup: map ISA tag prefixes to INPUTS keys for config-driven nodes
+const TAG_TO_INPUT = {
+    'XV-101': 'component_a', 'P-101': 'component_a', 'FT-101': 'component_a',
+    'XV-102': 'component_b', 'P-102': 'component_b', 'FT-102': 'component_b',
+    'XV-103': 'solvent', 'P-103': 'solvent', 'FT-103': 'solvent',
+    'TT-101': 'temperature', 'PT-101': 'pressure', 'LT-101': null,
+    'XV-301': 'product', 'P-301': 'product', 'FT-301': 'product',
+    'HE-101': 'jacket', 'TT-201': 'jacket', 'P-201': 'jacket',
+    'M-101': null, 'ST-101': null,
+}
+
 const equip = computed(() => {
     if (!props.equipmentId) return null
     if (isDynamic.value && dynamicSensor.value) {
@@ -55,7 +66,22 @@ const equip = computed(() => {
             inputKey: null,
         }
     }
-    return EQUIP_MAP[props.equipmentId] || null
+    // Legacy node IDs
+    if (EQUIP_MAP[props.equipmentId]) return EQUIP_MAP[props.equipmentId]
+    // Config-driven node IDs (e.g., "cm_XV-101", "feed_component_a")
+    if (props.equipmentId.startsWith('cm_')) {
+        const tag = props.equipmentId.slice(3)
+        const inputKey = TAG_TO_INPUT[tag] ?? null
+        // Find CM name from sensorConfig catalog
+        const sensor = sensorConfig.availableNodes.find(n => n.tag === tag)
+        return { tag, name: sensor?.name || tag, inputKey }
+    }
+    if (props.equipmentId.startsWith('feed_')) {
+        const material = props.equipmentId.slice(5)
+        const key = material === 'component_a' ? 'component_a' : material === 'component_b' ? 'component_b' : material === 'solvent' ? 'solvent' : null
+        return { tag: `V-${material}`, name: `${material} Feed`, inputKey: key }
+    }
+    return null
 })
 
 // Can remove from canvas: everything except reactor

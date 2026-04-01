@@ -11,6 +11,8 @@ set -euo pipefail
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 ROOT_DIR="$(cd "$SCRIPT_DIR/.." && pwd)"
 
+source "$SCRIPT_DIR/setup_common.sh"
+
 SKIP_FRONTEND=false
 for arg in "$@"; do
     case "$arg" in
@@ -24,17 +26,14 @@ echo ""
 
 # ---- Python dependencies ----
 echo "[1/3] Installing Python dependencies..."
-if [ -d "$ROOT_DIR/.venv" ]; then
-    PYTHON="$ROOT_DIR/.venv/bin/python"
-    PIP="$ROOT_DIR/.venv/bin/pip"
-    echo "  Using virtualenv: $ROOT_DIR/.venv"
-else
-    PYTHON="python3"
-    PIP="pip3"
-    echo "  No .venv found, using system Python"
-fi
+PYTHON_CMD="$(ensure_python_runtime)"
+ensure_repo_venv "$ROOT_DIR" "$PYTHON_CMD"
 
-$PIP install -e "$ROOT_DIR" --quiet
+PYTHON="$ROOT_DIR/.venv/bin/python"
+PIP="$ROOT_DIR/.venv/bin/pip"
+echo "  Using virtualenv: $ROOT_DIR/.venv"
+
+"$PIP" install -e "$ROOT_DIR" --quiet
 echo "  Done."
 
 # ---- OPC Tool frontend ----

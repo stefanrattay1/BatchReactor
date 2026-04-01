@@ -1,0 +1,1 @@
+- 2. Farbe main graph (panel)

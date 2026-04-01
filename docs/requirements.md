@@ -1,23 +1,25 @@
 # Requirements and Setup
 
-This project ships with both a classic setup script and a standard requirements file:
+This project ships with bash bootstrap scripts and a standard requirements file:
 
 | File | Purpose |
 |------|---------|
-| `setup.py` | Legacy setup entry point for tools that expect a setup script |
+| `setup.sh` | Main bootstrap entry point for Linux/macOS setup |
+| `scripts/setup_reactor.sh` | Reactor bootstrap script used by `setup.sh` |
+| `scripts/setup_opc_tool.sh` | OPC Tool bootstrap script |
 | `requirements.txt` | Runtime dependency list synced with `pyproject.toml` |
 
 ## Install Options
 
 ```bash
+# Preferred bootstrap flow
+./setup.sh
+
 # Runtime dependencies only
 pip install -r requirements.txt
 
 # Editable install (recommended for development)
 pip install -e ".[dev]"
-
-# Legacy setup flow
-python setup.py develop
 ```
 
 ## Web Interface Notes

@@ -3,6 +3,7 @@ import { computed } from 'vue'
 import { Handle, Position } from '@vue-flow/core'
 import { state } from '../../services/store'
 import { sensorConfig } from '../../services/sensorConfig'
+import { getConnectionRole, getPreferredHandleId } from '../../config/pidConnectionRules'
 
 const props = defineProps({
     data: { type: Object, default: () => ({}) },
@@ -15,6 +16,19 @@ const tagPrefix = computed(() => {
 
 const isValve = computed(() => ['XV', 'PCV', 'FCV'].includes(tagPrefix.value))
 const isPump = computed(() => tagPrefix.value === 'P')
+const connectionRole = computed(() => getConnectionRole({ type: 'instrument', data: props.data }))
+const sourceHandleId = computed(() => getPreferredHandleId({ type: 'instrument', data: props.data }, 'source'))
+const targetHandleId = computed(() => getPreferredHandleId({ type: 'instrument', data: props.data }, 'target'))
+
+const handlePositionMap = {
+  top: Position.Top,
+  bottom: Position.Bottom,
+  left: Position.Left,
+  right: Position.Right,
+}
+
+const sourceHandlePosition = computed(() => handlePositionMap[sourceHandleId.value] || Position.Bottom)
+const targetHandlePosition = computed(() => handlePositionMap[targetHandleId.value] || Position.Top)
 
 const value = computed(() => {
     const key = props.data.valueKey
@@ -79,9 +93,9 @@ const statusColor = computed(() => {
 </script>
 
 <template>
-  <div class="instrument-node" :class="{ 'sensor-disabled': isSensorDisabled }">
-    <Handle type="target" :position="Position.Top" />
-    <Handle type="source" :position="Position.Bottom" />
+  <div class="instrument-node" :class="{ 'sensor-disabled': isSensorDisabled, 'sensor-node': connectionRole === 'sensor' }">
+    <Handle :id="targetHandleId" type="target" :position="targetHandlePosition" :title="connectionRole === 'sensor' ? 'Signal In' : 'Process In'" />
+    <Handle :id="sourceHandleId" type="source" :position="sourceHandlePosition" :title="connectionRole === 'sensor' ? 'Signal Out' : 'Process Out'" />
 
     <!-- XV valve: compact inline P&ID symbol -->
     <div v-if="isValve" class="valve-node">
@@ -114,7 +128,7 @@ const statusColor = computed(() => {
     </div>
 
     <!-- Regular instrument: card -->
-    <div v-else class="pid-node-card instrument-box" :style="{ borderColor: statusColor }">
+    <div v-else class="pid-node-card instrument-box" :style="{ borderColor: statusColor, '--node-accent': statusColor }">
       <div class="pid-node-head">
         <span class="pid-node-tag">{{ data.tag || 'INST' }}</span>
         <span class="pid-node-status" :style="{ background: statusColor }"></span>
@@ -141,8 +155,8 @@ const statusColor = computed(() => {
 .instrument-main {
     display: flex;
     align-items: center;
-    gap: 5px;
-    margin-bottom: 4px;
+  gap: 5px;
+  margin-bottom: 3px;
 }
 
 /* Compact valve symbol node */
@@ -150,7 +164,12 @@ const statusColor = computed(() => {
     display: flex;
     flex-direction: column;
     align-items: center;
-    padding: 2px 6px 0;
+  min-width: 58px;
+  padding: 5px 8px 4px;
+  border-radius: 10px;
+  border: 1px solid rgba(92, 105, 115, 0.6);
+  background: linear-gradient(180deg, rgba(31, 38, 45, 0.98) 0%, rgba(22, 28, 34, 0.98) 100%);
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.04), 0 8px 18px rgba(0, 0, 0, 0.24);
 }
 
 /* Compact pump symbol node */
@@ -158,21 +177,33 @@ const statusColor = computed(() => {
     display: flex;
     flex-direction: column;
     align-items: center;
-    padding: 2px 6px 0;
+  min-width: 58px;
+  padding: 5px 8px 4px;
+  border-radius: 10px;
+  border: 1px solid rgba(92, 105, 115, 0.6);
+  background: linear-gradient(180deg, rgba(31, 38, 45, 0.98) 0%, rgba(22, 28, 34, 0.98) 100%);
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.04), 0 8px 18px rgba(0, 0, 0, 0.24);
 }
 
 .valve-tag {
-    font-family: 'JetBrains Mono', monospace;
-    font-size: 0.42rem;
+  font-family: 'IBM Plex Mono', 'JetBrains Mono', monospace;
+  font-size: 0.44rem;
     font-weight: 700;
-    letter-spacing: 0.08em;
-    margin-top: 2px;
+  letter-spacing: 0.1em;
+  margin-top: 3px;
     white-space: nowrap;
+  padding: 1px 5px;
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.04);
 }
 
 .sensor-disabled {
-    opacity: 0.25;
+  opacity: 0.38;
     filter: grayscale(0.8);
     transition: opacity 0.2s, filter 0.2s;
+}
+
+.sensor-node :deep(.vue-flow__handle) {
+  background: rgba(114, 180, 125, 0.9);
 }
 </style>

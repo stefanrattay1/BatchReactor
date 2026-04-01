@@ -3,6 +3,13 @@ import { computed } from 'vue'
 import { Handle, Position } from '@vue-flow/core'
 import { state } from '../../services/store'
 
+const props = defineProps({
+    data: { type: Object, default: () => ({}) },
+})
+
+const tag = computed(() => props.data?.tag || 'M-101')
+const label = computed(() => props.data?.label || 'Agitator')
+
 const rpm = computed(() => (state.agitator_speed_rpm || 0).toFixed(0))
 
 const statusColor = computed(() => {
@@ -14,18 +21,19 @@ const statusColor = computed(() => {
 
 <template>
   <div class="agitator-node">
-    <Handle type="source" :position="Position.Left" />
+    <Handle id="in" type="target" :position="Position.Right" />
+    <Handle id="out" type="source" :position="Position.Left" />
 
-    <div class="pid-node-card agitator-box" :style="{ borderColor: statusColor }">
+    <div class="pid-node-card agitator-box" :style="{ borderColor: statusColor, '--node-accent': statusColor }">
       <div class="pid-node-head">
-        <span class="pid-node-tag">M-101</span>
+        <span class="pid-node-tag">{{ tag }}</span>
         <span class="pid-node-status" :style="{ background: statusColor }"></span>
       </div>
       <div class="agitator-main">
         <svg class="pid-node-symbol" viewBox="0 0 14 14" fill="none" stroke="currentColor" stroke-width="1.2" stroke-linecap="round" stroke-linejoin="round">
           <path d="M7 2v10M3 5l4 2 4-2M3 9l4-2 4 2" />
         </svg>
-        <div class="pid-node-name">Agitator</div>
+        <div class="pid-node-name">{{ label }}</div>
       </div>
       <div class="pid-node-value">
         <span class="pid-node-value-num">{{ rpm }}</span>
@@ -42,6 +50,6 @@ const statusColor = computed(() => {
 .agitator-main {
     display: flex;
     align-items: center;
-  gap: 5px;
+    gap: 5px;
 }
 </style>

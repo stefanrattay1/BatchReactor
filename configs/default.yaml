@@ -124,6 +124,87 @@ batch_parameter_sets:
 # --- Optional: ISA-88 Equipment Module / Control Module Layer ---
 # Enables procedural control automation.  Omit to use direct recipe-to-physics mode.
 equipment:
+  # --- P&ID Topology ---
+  # Defines how equipment modules and control modules are laid out
+  # on the P&ID diagram. The frontend auto-generates nodes and edges
+  # from this section. If absent, a hardcoded fallback layout is used.
+  pid:
+    structural_nodes:
+      - id: reactor
+        type: reactor
+        label: "Reactor R-101"
+      - id: product
+        type: product
+        label: "Product Outlet"
+
+    em_roles:
+      EM-FILL:
+        role: feed_group
+        feed_lines:
+          - material: component_a
+            label: "Component A Source"
+            cms: [XV-101, P-101, FT-101]
+            target_handle: feed
+          - material: component_b
+            label: "Component B Source"
+            cms: [XV-102, P-102, FT-102]
+            target_handle: feed
+          - material: solvent
+            label: "Solvent Source"
+            cms: [XV-103, P-103, FT-103]
+            target_handle: feed
+        side_instruments:
+          - tag: LT-101
+            attach_to: reactor
+            attach_handle: sensor
+            position_hint: bottom
+          - tag: TT-101
+            attach_to: reactor
+            attach_handle: sensor
+            position_hint: left
+
+      EM-DRAIN:
+        role: drain_line
+        cms: [XV-301, P-301, FT-301]
+        source_handle: product
+        target_node: product
+
+      EM-TEMP:
+        role: jacket
+        structural_node:
+          id: jacket
+          type: jacket
+          label: "Jacket Loop"
+        attach_to: reactor
+        attach_handle: jacket
+
+      EM-AGIT:
+        role: agitator
+        structural_node:
+          id: agitator
+          type: agitator
+          label: "Agitator"
+        attach_to: reactor
+        attach_handle: agitator
+
+      EM-PRESS:
+        role: side_instruments
+        instruments:
+          - tag: PT-101
+            attach_to: reactor
+            attach_handle: sensor
+            position_hint: right
+
+      EM-INERT:
+        role: side_instruments
+        instruments:
+          - tag: XV-501
+            attach_to: reactor
+            position_hint: top-right
+          - tag: XV-502
+            attach_to: reactor
+            position_hint: top-right
+
   interlocks:
     mode_conflicts:
       - left: "EM-FILL:dose_component_a"

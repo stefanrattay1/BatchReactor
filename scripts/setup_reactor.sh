@@ -13,6 +13,8 @@ set -euo pipefail
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 ROOT_DIR="$(cd "$SCRIPT_DIR/.." && pwd)"
 
+source "$SCRIPT_DIR/setup_common.sh"
+
 SKIP_FRONTEND=false
 SKIP_IPOPT=false
 WITH_OPC_TOOL=false
@@ -30,10 +32,8 @@ echo ""
 
 # ---- Python environment ----
 echo "[1/5] Setting up Python environment..."
-if [ ! -d "$ROOT_DIR/.venv" ]; then
-    echo "  Creating virtualenv..."
-    python3 -m venv "$ROOT_DIR/.venv"
-fi
+PYTHON_CMD="$(ensure_python_runtime)"
+ensure_repo_venv "$ROOT_DIR" "$PYTHON_CMD"
 
 PYTHON="$ROOT_DIR/.venv/bin/python"
 PIP="$ROOT_DIR/.venv/bin/pip"
@@ -41,8 +41,8 @@ echo "  Using virtualenv: $ROOT_DIR/.venv"
 
 # ---- Python dependencies ----
 echo "[2/5] Installing Python dependencies..."
-$PIP install --upgrade pip --quiet
-$PIP install -e "$ROOT_DIR[dev]" --quiet
+"$PIP" install --upgrade pip --quiet
+"$PIP" install -e "$ROOT_DIR[dev]" --quiet
 echo "  Done."
 
 # ---- IPOPT solver ----
@@ -50,13 +50,13 @@ if [ "$SKIP_IPOPT" = true ]; then
     echo "[3/5] Skipping IPOPT installation (--skip-ipopt)"
 else
     echo "[3/5] Installing IPOPT solver via IDAES..."
-    if $PYTHON -c "import idaes" 2>/dev/null; then
+    if "$PYTHON" -c "import idaes" 2>/dev/null; then
         echo "  IDAES already installed, getting extensions..."
     else
         echo "  Installing idaes-pse..."
-        $PIP install idaes-pse --quiet
+        "$PIP" install idaes-pse --quiet
     fi
-    $PYTHON -c "
+    "$PYTHON" -c "
 import subprocess, sys
 try:
     result = subprocess.run(

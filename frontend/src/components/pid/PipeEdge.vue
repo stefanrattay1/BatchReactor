@@ -23,7 +23,8 @@ const pathData = computed(() => getSmoothStepPath({
     targetX: props.targetX,
     targetY: props.targetY,
     targetPosition: props.targetPosition,
-    borderRadius: 8,
+  borderRadius: 12,
+  offset: 22,
 }))
 
 const path = computed(() => pathData.value[0])
@@ -47,39 +48,73 @@ const isManual = computed(() =>
     props.data?.actuatorKey ? !!state.actuator_overrides?.[props.data.actuatorKey] : false
 )
 
+const isSignal = computed(() => !!props.data?.signal)
+const isEmphasized = computed(() => !!props.data?.emphasized)
+const edgeLength = computed(() => Math.hypot(props.targetX - props.sourceX, props.targetY - props.sourceY))
+
+const strokeWidth = computed(() => {
+  if (isSignal.value) return 2.4
+  if (isFlowing.value) return 3
+  return 3.1
+})
+
+const casingWidth = computed(() => strokeWidth.value + (isEmphasized.value ? 3 : 2))
+
+const casingColor = computed(() => {
+  if (isSignal.value) return 'rgba(17, 22, 27, 0.96)'
+  return 'rgba(9, 13, 17, 0.92)'
+})
+
 const pipeColor = computed(() => {
-    if (isAlarm.value) return '#ef4444'
-    if (isFlowing.value) return '#9ca3af'
-    return '#3f3f46'
+    if (isAlarm.value) return '#db6a64'
+    if (isSignal.value) return '#c2d4c1'
+    if (isFlowing.value) return '#f2f5f7'
+    return '#d3dce2'
 })
 
 // Valve symbol color: alarm > manual > open > closed (ISA-101: gray normal, color only on deviation)
 const valveColor = computed(() => {
-    if (isAlarm.value) return '#ef4444'
-    if (isManual.value) return '#f97316'
-    if (isFlowing.value) return '#9ca3af'
-    return '#52525b'
+  if (isAlarm.value) return '#db6a64'
+  if (isManual.value) return '#d28548'
+  if (isFlowing.value) return '#eef2f5'
+  return '#8d99a3'
 })
 
 const hasValve = computed(() => !!props.data?.valveTag)
 
 // Arrow marker: match pipe color, suppress on mechanical connections
 const markerEndId = computed(() => {
-    if (props.data?.noArrow) return ''
+    if (props.data?.noArrow || isSignal.value || edgeLength.value < 72) return ''
     if (isAlarm.value) return 'url(#arrow-alarm)'
     if (isFlowing.value) return 'url(#arrow-flowing)'
-    return 'url(#arrow-idle)'
+    return ''
 })
 </script>
 
 <template>
+  <BaseEdge :id="`${id}-casing`" :path="path"
+      :style="{
+        stroke: casingColor,
+        strokeWidth: `${casingWidth}px`,
+        strokeLinecap: 'round',
+        strokeLinejoin: 'round',
+        opacity: isEmphasized ? 0.96 : 0.84,
+        vectorEffect: 'non-scaling-stroke',
+      }" />
+
   <BaseEdge :id="id" :path="path" :marker-end="markerEndId"
             :style="{
                 stroke: pipeColor,
-          strokeWidth: '2.2px',
-                strokeLinecap: 'butt',
-          strokeDasharray: isFlowing ? '7 9' : 'none',
-          animation: isFlowing ? 'pipeFlow 1.2s linear infinite' : 'none',
+                strokeWidth: `${strokeWidth}px`,
+                strokeLinecap: 'round',
+                strokeLinejoin: 'round',
+                strokeDasharray: isSignal ? '4 6' : 'none',
+                animation: 'none',
+                opacity: isFlowing ? 1 : 0.95,
+                vectorEffect: 'non-scaling-stroke',
+                filter: isEmphasized
+                    ? 'drop-shadow(0 0 7px rgba(248, 250, 252, 0.28))'
+                    : (isFlowing ? 'drop-shadow(0 0 5px rgba(242, 245, 247, 0.12))' : 'none'),
             }" />
 
   <!-- Valve symbol — only on edges that have a valveTag -->
@@ -100,8 +135,8 @@ const markerEndId = computed(() => {
       -->
       <svg width="22" height="30" viewBox="-11 -18 22 30" overflow="visible">
         <!-- Dark background clears the pipe at valve position -->
-        <rect x="-9" y="-7" width="18" height="14" rx="1"
-              fill="#1c1c1c" stroke="#3a3a3a" stroke-width="0.5"/>
+          <rect x="-9" y="-7" width="18" height="14" rx="2"
+            fill="#11161b" stroke="#46515a" stroke-width="0.6"/>
 
         <!-- Valve body: left triangle (pointing right) -->
         <polygon points="-8,0 0,-6 0,6" :fill="valveColor"/>
@@ -126,17 +161,10 @@ const markerEndId = computed(() => {
         fontWeight: '700',
         color: valveColor,
         letterSpacing: '0.06em',
-        fontFamily: '\'JetBrains Mono\', monospace',
+        fontFamily: 'IBM Plex Mono, JetBrains Mono, monospace',
         marginTop: '1px',
         whiteSpace: 'nowrap',
       }">{{ data.valveTag }}</div>
     </div>
   </EdgeLabelRenderer>
 </template>
-
-<style>
-@keyframes pipeFlow {
-  0% { stroke-dashoffset: 16; }
-    100% { stroke-dashoffset: 0; }
-}
-</style>

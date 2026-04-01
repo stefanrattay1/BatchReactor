@@ -135,6 +135,19 @@ class EMManager:
             if requires:
                 self._mode_preconditions[(selector[0], selector[1])] = requires
 
+    def reinitialize(self, equipment_cfg: dict[str, Any]) -> None:
+        """Rebuild all EM/CM state from a fresh equipment config in place."""
+        self._equipment_cfg = equipment_cfg
+        self._cms.clear()
+        self._ems.clear()
+        self._last_recipe_modes.clear()
+        self._mode_conflicts.clear()
+        self._mode_preconditions.clear()
+        self._events.clear()
+
+        self._build_from_config(equipment_cfg)
+        self._load_interlocks(equipment_cfg)
+
     def _parse_selector(self, selector: str) -> tuple[str, str] | None:
         parts = selector.split(":", 1)
         if len(parts) != 2:

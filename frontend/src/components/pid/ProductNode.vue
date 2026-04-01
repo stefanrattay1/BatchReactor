@@ -14,9 +14,10 @@ const statusColor = computed(() => {
 
 <template>
   <div class="product-node">
-    <Handle type="target" :position="Position.Top" />
+    <Handle id="in" type="target" :position="Position.Top" />
+    <Handle id="out" type="source" :position="Position.Bottom" />
 
-    <div class="pid-node-card product-box" :style="{ borderColor: statusColor }">
+    <div class="pid-node-card product-box" :style="{ borderColor: statusColor, '--node-accent': statusColor }">
       <div class="pid-node-head">
         <span class="pid-node-tag">P-201</span>
         <span class="pid-node-status" :style="{ background: statusColor }"></span>
@@ -48,12 +49,12 @@ const statusColor = computed(() => {
 }
 
 .product-box {
-    min-width: 96px;
+  min-width: 88px;
 }
 
 .product-main {
     display: flex;
     align-items: center;
-    gap: 5px;
+  gap: 7px;
 }
 </style>

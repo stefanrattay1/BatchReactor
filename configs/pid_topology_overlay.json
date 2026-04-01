@@ -1,0 +1,57 @@
+{
+  "node_data_overrides": {},
+  "added_edges": [
+    {
+      "id": "user_1775021107650_0",
+      "source": "cm_LT-101",
+      "target": "reactor",
+      "type": "pipe",
+      "data": {},
+      "sourceHandle": "top",
+      "targetHandle": "sensor"
+    },
+    {
+      "id": "user_1775024754746_0",
+      "source": "cm_FT-102",
+      "target": "reactor",
+      "type": "pipe",
+      "data": {
+        "flowKey": "",
+        "valveTag": "",
+        "noArrow": true
+      },
+      "sourceHandle": "out",
+      "targetHandle": "feed"
+    },
+    {
+      "id": "user_1775052504628_0",
+      "source": "cm_FT-101",
+      "target": "reactor",
+      "type": "pipe",
+      "data": {},
+      "sourceHandle": "out",
+      "targetHandle": "feed"
+    },
+    {
+      "id": "user_1775055397300_0",
+      "source": "feed_solvent",
+      "target": "cm_XV-501",
+      "type": "pipe",
+      "data": {},
+      "sourceHandle": "out",
+      "targetHandle": "in"
+    },
+    {
+      "id": "user_1775055401431_1",
+      "source": "cm_XV-501",
+      "target": "cm_P-103",
+      "type": "pipe",
+      "data": {},
+      "sourceHandle": "out",
+      "targetHandle": "in"
+    }
+  ],
+  "removed_edge_ids": [
+    "cm_FT-101-reactor"
+  ]
+}

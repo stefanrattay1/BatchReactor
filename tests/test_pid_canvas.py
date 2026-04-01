@@ -18,7 +18,10 @@ import textwrap
 from pathlib import Path
 
 import pytest
-import requests
+try:
+    import requests
+except ModuleNotFoundError:  # pragma: no cover - optional test dependency
+    requests = None
 
 # ---------------------------------------------------------------------------
 # Paths
@@ -35,6 +38,8 @@ BASE_URL = "http://localhost:8000"
 # ---------------------------------------------------------------------------
 
 def _server_reachable() -> bool:
+    if requests is None:
+        return False
     try:
         requests.get(f"{BASE_URL}/api/state", timeout=1)
         return True
@@ -59,6 +64,13 @@ def _extract_cm_tags_from_yaml() -> list[str]:
     equipment = cfg.get("equipment", {})
     cms = equipment.get("control_modules", [])
     return [cm["tag"] for cm in cms if isinstance(cm, dict) and "tag" in cm]
+
+
+def _extract_pid_roles_from_yaml() -> dict:
+    import yaml
+    with open(CONFIG_YAML) as f:
+        cfg = yaml.safe_load(f)
+    return cfg.get("equipment", {}).get("pid", {}).get("em_roles", {})
 
 
 # ---------------------------------------------------------------------------
@@ -133,6 +145,22 @@ class TestNodeCatalogTagCoverage:
         for tag in dynamic_candidates:
             assert isinstance(tag, str) and tag, f"Dynamic candidate tag is not a string: {tag!r}"
             assert pattern.match(tag), f"Dynamic candidate tag has bad format: {tag}"
+
+    def test_reactor_sensor_instruments_use_explicit_sensor_port(self):
+        roles = _extract_pid_roles_from_yaml()
+
+        fill_side = roles["EM-FILL"]["side_instruments"]
+        pressure_side = roles["EM-PRESS"]["instruments"]
+
+        expected = {
+            "LT-101": fill_side[0],
+            "TT-101": fill_side[1],
+            "PT-101": pressure_side[0],
+        }
+
+        for tag, item in expected.items():
+            assert item.get("attach_to") == "reactor", f"{tag} must attach to the reactor"
+            assert item.get("attach_handle") == "sensor", f"{tag} must use the reactor sensor port"
 
 
 # ---------------------------------------------------------------------------

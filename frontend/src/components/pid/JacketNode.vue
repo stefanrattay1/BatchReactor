@@ -3,6 +3,13 @@ import { computed } from 'vue'
 import { Handle, Position } from '@vue-flow/core'
 import { state } from '../../services/store'
 
+const props = defineProps({
+    data: { type: Object, default: () => ({}) },
+})
+
+const tag = computed(() => props.data?.tag || 'E-101')
+const label = computed(() => props.data?.label || 'Jacket Loop')
+
 const jacketC = computed(() => (state.jacket_temperature_K - 273.15).toFixed(0))
 const mode = computed(() => state.actuator_overrides?.jacket_temp ? 'MAN' : 'AUTO')
 const isManual = computed(() => !!state.actuator_overrides?.jacket_temp)
@@ -17,18 +24,19 @@ const statusColor = computed(() => {
 
 <template>
   <div class="jacket-node">
-    <Handle type="source" :position="Position.Right" />
+        <Handle id="in" type="target" :position="Position.Left" />
+        <Handle id="out" type="source" :position="Position.Right" />
 
-        <div class="pid-node-card jacket-box" :style="{ borderColor: statusColor }">
+        <div class="pid-node-card jacket-box" :style="{ borderColor: statusColor, '--node-accent': statusColor }">
             <div class="pid-node-head">
-                <span class="pid-node-tag">E-101</span>
+                <span class="pid-node-tag">{{ tag }}</span>
                 <span class="pid-node-status" :style="{ background: statusColor }"></span>
       </div>
             <div class="jacket-main">
                 <svg class="pid-node-symbol" viewBox="0 0 14 14" fill="none" stroke="currentColor" stroke-width="1.2" stroke-linecap="round" stroke-linejoin="round">
                     <path d="M2 3h10v8H2zM3.5 10.5l2-2 1.5 1.5 2-2 1.5 1.5" />
                 </svg>
-                <div class="pid-node-name">Jacket Loop</div>
+                <div class="pid-node-name">{{ label }}</div>
       </div>
             <div class="pid-node-value">
                 <span class="pid-node-value-num">{{ jacketC }}</span>
@@ -50,19 +58,20 @@ const statusColor = computed(() => {
 }
 
 .mode-tag {
-    font-size: 0.48rem;
+    font-size: 0.46rem;
     font-weight: 700;
-    padding: 1px 4px;
-    border-radius: 1px;
-    background: #2a2a2a;
-    color: var(--text-muted);
+    padding: 1px 5px;
+    border-radius: 999px;
+    background: rgba(255, 255, 255, 0.04);
+    color: var(--text-secondary);
     display: inline-block;
-    letter-spacing: 0.06em;
-    border: 1px solid #3a3a3a;
+    letter-spacing: 0.08em;
+    border: 1px solid rgba(92, 105, 115, 0.42);
+    margin-top: 4px;
 }
 .mode-tag.manual {
     background: var(--dcs-maintenance);
-    color: #111;
+    color: #11161b;
     border-color: var(--dcs-maintenance);
 }
 </style>

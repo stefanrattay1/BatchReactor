@@ -7,13 +7,27 @@ const props = defineProps({
     data: { type: Object, default: () => ({}) },
 })
 
+// Legacy fallback for configs without equipment.pid section
 const FEED_CONFIG = {
     component_a:    { tag: 'V-101', name: 'Component A Source', rateKey: 'feed_rate_component_a', actuator: 'feed_component_a' },
     component_b: { tag: 'V-102', name: 'Component B Source', rateKey: 'feed_rate_component_b', actuator: 'feed_component_b' },
     solvent:  { tag: 'V-103', name: 'Solvent Source', rateKey: 'feed_rate_solvent', actuator: 'feed_solvent' },
 }
 
-const config = computed(() => FEED_CONFIG[props.data.feedType] || FEED_CONFIG.component_a)
+const config = computed(() => {
+    const d = props.data
+    // Config-driven: data comes populated from topology endpoint
+    if (d.rateKey || d.label) {
+        return {
+            tag: d.tag || FEED_CONFIG[d.feedType]?.tag || d.feedType,
+            name: d.label || d.feedType,
+            rateKey: d.rateKey || `feed_rate_${d.feedType}`,
+            actuator: d.actuator || `feed_${d.feedType}`,
+        }
+    }
+    // Legacy fallback
+    return FEED_CONFIG[d.feedType] || FEED_CONFIG.component_a
+})
 
 const isFlowing = computed(() => state.simulation_running && state[config.value.rateKey] > 0.001)
 
@@ -27,9 +41,10 @@ const statusColor = computed(() => {
 
 <template>
   <div class="feed-node">
-    <Handle type="source" :position="Position.Bottom" />
+        <Handle id="in" type="target" :position="Position.Top" />
+        <Handle id="out" type="source" :position="Position.Bottom" />
 
-        <div class="pid-node-card feed-box" :style="{ borderColor: statusColor }">
+        <div class="pid-node-card feed-box" :style="{ borderColor: statusColor, '--node-accent': statusColor }">
             <div class="pid-node-head">
                 <span class="pid-node-tag">{{ config.tag }}</span>
                 <span class="pid-node-status" :style="{ background: statusColor }"></span>
@@ -54,6 +69,6 @@ const statusColor = computed(() => {
 .feed-main {
     display: flex;
     align-items: center;
-        gap: 5px;
+    gap: 5px;
 }
 </style>

@@ -124,6 +124,15 @@ class AlarmManager:
         ]
         return cls(definitions, suppression_rules=suppression_rules)
 
+    def reinitialize_from_equipment_config(self, equipment_cfg: dict[str, Any] | None = None) -> None:
+        """Replace alarm definitions and runtime state from equipment config."""
+        replacement = type(self).from_equipment_config(equipment_cfg)
+        self._defs = replacement._defs
+        self._state = replacement._state
+        self._history = []
+        self._manual_suppression = {}
+        self._suppression_rules = replacement._suppression_rules
+
     def evaluate(
         self,
         *,

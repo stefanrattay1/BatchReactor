@@ -10,6 +10,12 @@ const stepName = computed(() => state.recipe_step)
 const isRunning = computed(() => state.simulation_running)
 const isConnected = computed(() => state.connected)
 const commandPending = ref(false)
+const activeConfigName = computed(() => {
+  const raw = state.active_config_file || 'default'
+  const file = raw.split(/[/\\]/).pop() || raw
+  return file.replace(/\.(json|ya?ml)$/i, '').replace(/_/g, ' ')
+})
+const stepLabel = computed(() => stepName.value && stepName.value !== 'DONE' ? stepName.value : 'Awaiting batch command')
 
 const canStart = computed(() => isConnected.value && !commandPending.value && !isRunning.value && phase.value !== 'RUNAWAY_ALARM')
 const canStop = computed(() => isConnected.value && !commandPending.value && isRunning.value)
@@ -62,20 +68,27 @@ async function toggleFakeSensors() {
 
 <template>
   <div class="header">
-    <!-- System identity block -->
     <div class="sys-id">
-      <span class="sys-name">REACTOR DIGITAL TWIN</span>
-      <span class="sys-sub">BATCH CONTROL SYSTEM</span>
+      <span class="sys-kicker">ISA-88 Batch Cell</span>
+      <span class="sys-name">Reactor Digital Twin</span>
     </div>
 
-    <PhaseBadge :phase="phase" />
-    <span v-if="fakeSensorsEnabled" class="fake-badge">SIM</span>
-    <span class="step-name">{{ stepName }}</span>
+    <div class="header-phase">
+      <PhaseBadge :phase="phase" />
+      <div class="header-copy">
+        <span class="copy-kicker">Current Operation</span>
+        <span class="step-name">{{ stepLabel }}</span>
+      </div>
+    </div>
+
+    <div class="header-meta">
+      <span class="meta-chip">CFG {{ activeConfigName }}</span>
+      <span v-if="fakeSensorsEnabled" class="meta-chip meta-chip-warn">Noise On</span>
+    </div>
 
     <div class="divider"></div>
 
-    <!-- Primary controls -->
-    <div class="btn-group">
+    <div class="btn-group btn-group-primary">
       <button class="btn btn-start" :disabled="!canStart" @click="start" title="Start batch">
         &#9654; START
       </button>
@@ -92,11 +105,10 @@ async function toggleFakeSensors() {
 
     <div class="divider"></div>
 
-    <!-- Function keys -->
     <div class="btn-group">
       <button class="btn btn-fn" @click="openSensorManager">SENSORS</button>
       <button class="btn btn-fn" @click="emit('open-config')">CONFIG</button>
-      <button class="btn btn-fn" @click="emit('open-batch')">FULL SIM</button>
+      <button class="btn btn-fn" @click="emit('open-batch')">BATCH RUN</button>
       <button class="btn btn-fn" @click="emit('open-history')">HISTORY</button>
     </div>
 
@@ -104,9 +116,9 @@ async function toggleFakeSensors() {
 
     <button class="btn btn-toggle" :class="{ active: fakeSensorsEnabled }" @click="toggleFakeSensors"
             title="Toggle simulated sensor noise">
-      {{ fakeSensorsEnabled ? 'FAKE' : 'TRUE' }}
+      {{ fakeSensorsEnabled ? 'NOISE ON' : 'NOISE OFF' }}
     </button>
-    <label class="tick-label">DT
+    <label class="tick-label">Scan
       <select class="tick-select" :value="tickInterval" @change="handleTickChange">
         <option v-for="opt in tickOptions" :key="opt" :value="opt">{{ opt }}s</option>
       </select>
@@ -114,10 +126,12 @@ async function toggleFakeSensors() {
 
     <div class="spacer"></div>
 
-    <!-- Connection status -->
     <div class="conn-block" :class="{ ok: isConnected, err: !isConnected }">
       <span class="conn-sq"></span>
-      <span class="conn-text">{{ isConnected ? 'ONLINE' : 'OFFLINE' }}</span>
+    <div class="conn-copy">
+    <span class="conn-label">Gateway</span>
+    <span class="conn-text">{{ isConnected ? 'ONLINE' : 'OFFLINE' }}</span>
+    </div>
     </div>
   </div>
 </template>
@@ -126,176 +140,260 @@ async function toggleFakeSensors() {
 .header {
     display: flex;
     align-items: center;
-    gap: 8px;
-    padding: 0 14px;
-    height: 40px;
-    background: #1a1a1a;
-    border-bottom: 2px solid #2e2e2e;
+  gap: 12px;
+  padding: 10px 16px;
+  min-height: 58px;
+  background: linear-gradient(180deg, rgba(17, 24, 31, 0.98) 0%, rgba(13, 19, 25, 0.98) 100%);
+  border-bottom: 1px solid rgba(73, 96, 110, 0.45);
+  box-shadow: inset 0 -1px 0 rgba(255, 255, 255, 0.03);
     flex-shrink: 0;
-    flex-wrap: nowrap;
-    overflow: hidden;
+  flex-wrap: wrap;
 }
 
-/* System identity */
 .sys-id {
     display: flex;
     flex-direction: column;
-    line-height: 1;
+  gap: 2px;
     flex-shrink: 0;
-    margin-right: 4px;
+  min-width: 170px;
+}
+.sys-kicker {
+  font-size: 0.46rem;
+  color: var(--text-faint);
+  letter-spacing: 0.18em;
+  text-transform: uppercase;
 }
 .sys-name {
-    font-size: 0.72rem;
+  font-size: 1rem;
     font-weight: 700;
-    color: var(--accent-primary);
-    letter-spacing: 0.08em;
+  color: var(--text-primary);
+  letter-spacing: 0.04em;
     white-space: nowrap;
-}
-.sys-sub {
-    font-size: 0.48rem;
-    color: var(--text-muted);
-    letter-spacing: 0.1em;
-    white-space: nowrap;
-    margin-top: 1px;
+  font-family: var(--font-display);
 }
 
-.fake-badge {
-    padding: 1px 5px;
-    border-radius: 1px;
-    font-size: 0.55rem;
+.header-phase {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  min-width: 260px;
+}
+
+.header-copy {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+}
+
+.copy-kicker {
+  font-size: 0.46rem;
+  color: var(--text-faint);
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+}
+
+.header-meta {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.meta-chip {
+  display: inline-flex;
+  align-items: center;
+  height: 30px;
+  padding: 0 10px;
+  border-radius: 999px;
+  border: 1px solid rgba(73, 96, 110, 0.45);
+  background: rgba(15, 22, 28, 0.9);
+  color: var(--text-muted);
+  font-size: 0.54rem;
     font-weight: 700;
     text-transform: uppercase;
-    background: var(--accent-warning);
-    color: #111;
-    flex-shrink: 0;
+  letter-spacing: 0.12em;
+}
+
+.meta-chip-warn {
+  border-color: rgba(227, 162, 59, 0.55);
+  color: var(--accent-warning);
+  background: rgba(227, 162, 59, 0.08);
 }
 
 .step-name {
-    font-size: 0.65rem;
-    color: var(--text-muted);
+  font-size: 0.72rem;
+  color: var(--text-secondary);
     font-family: var(--font-mono);
     white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  max-width: 280px;
 }
 
 .spacer { flex: 1; }
 
 .divider {
     width: 1px;
-    height: 22px;
-    background: #3a3a3a;
+  align-self: stretch;
+  background: linear-gradient(180deg, transparent, rgba(73, 96, 110, 0.65), transparent);
     flex-shrink: 0;
 }
 
-.btn-group { display: flex; gap: 2px; align-items: center; }
+.btn-group {
+  display: flex;
+  gap: 6px;
+  align-items: center;
+  flex-wrap: wrap;
+}
 
-/* Base button — DCS function key style */
 .btn {
-    padding: 3px 9px;
-    border: 1px solid #4a4a4a;
-    border-radius: 1px;
-    font-size: 0.6rem;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  min-height: 34px;
+  padding: 0 12px;
+  border: 1px solid rgba(73, 96, 110, 0.45);
+  border-radius: 10px;
+  font-size: 0.58rem;
     font-weight: 700;
     cursor: pointer;
     text-transform: uppercase;
-    letter-spacing: 0.06em;
+  letter-spacing: 0.12em;
     white-space: nowrap;
-    background: #2a2a2a;
-    color: #a0a0a0;
-    transition: background 0.1s, color 0.1s;
+  background: linear-gradient(180deg, rgba(24, 35, 44, 0.98) 0%, rgba(14, 20, 25, 0.98) 100%);
+  color: var(--text-muted);
+  transition: background 0.15s, color 0.15s, border-color 0.15s, transform 0.15s;
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.04);
 }
-.btn:hover { background: #333; color: #e8e8e8; }
+.btn:hover:not(:disabled) {
+  background: linear-gradient(180deg, rgba(37, 45, 52, 1) 0%, rgba(18, 24, 29, 1) 100%);
+  color: var(--text-primary);
+  border-color: rgba(92, 105, 115, 0.7);
+  transform: translateY(-1px);
+}
 .btn:disabled { opacity: 0.3; cursor: not-allowed; }
 
-/* Primary control buttons — bordered color style */
 .btn-start {
-    border-color: #22c55e;
-    color: #22c55e;
-    background: rgba(34, 197, 94, 0.08);
+  border-color: rgba(91, 199, 122, 0.65);
+  color: var(--accent-success);
+  background: rgba(91, 199, 122, 0.08);
 }
-.btn-start:hover:not(:disabled) { background: rgba(34, 197, 94, 0.2); }
+.btn-start:hover:not(:disabled) { background: rgba(91, 199, 122, 0.16); }
 
 .btn-stop {
-    border-color: #ef4444;
-    color: #ef4444;
-    background: rgba(239, 68, 68, 0.08);
+  border-color: rgba(239, 99, 92, 0.6);
+  color: var(--accent-danger);
+  background: rgba(239, 99, 92, 0.08);
 }
-.btn-stop:hover:not(:disabled) { background: rgba(239, 68, 68, 0.2); }
+.btn-stop:hover:not(:disabled) { background: rgba(239, 99, 92, 0.16); }
 
 .btn-reset {
-    border-color: #f97316;
-    color: #f97316;
-    background: rgba(249, 115, 22, 0.08);
+  border-color: rgba(241, 136, 58, 0.65);
+  color: var(--dcs-maintenance);
+  background: rgba(241, 136, 58, 0.08);
 }
-.btn-reset:hover:not(:disabled) { background: rgba(249, 115, 22, 0.2); }
+.btn-reset:hover:not(:disabled) { background: rgba(241, 136, 58, 0.16); }
 
-/* Function key buttons */
 .btn-fn {
-    border-color: #3a3a3a;
-    color: #808080;
-    background: #222;
+  color: var(--text-secondary);
 }
-.btn-fn:hover { background: #2e2e2e; color: #c0c0c0; }
 
 .btn-toggle {
-    border-color: #3a3a3a;
-    background: #222;
-    color: #606060;
-    font-size: 0.55rem;
+  min-width: 108px;
+  font-size: 0.52rem;
 }
 .btn-toggle.active {
-    border-color: var(--dcs-warning);
-    color: var(--dcs-warning);
-    background: rgba(245, 158, 11, 0.1);
+  border-color: rgba(227, 162, 59, 0.6);
+  color: var(--dcs-warning);
+  background: rgba(227, 162, 59, 0.1);
 }
 
 .tick-label {
-    font-size: 0.55rem;
-    color: var(--text-muted);
+  height: 34px;
+  padding: 0 10px;
+  border-radius: 10px;
+  border: 1px solid rgba(73, 96, 110, 0.45);
+  background: rgba(14, 20, 25, 0.96);
+  font-size: 0.52rem;
+  color: var(--text-faint);
     font-weight: 700;
     display: flex;
     align-items: center;
-    gap: 3px;
+  gap: 6px;
     text-transform: uppercase;
-    letter-spacing: 0.06em;
+  letter-spacing: 0.16em;
 }
 .tick-select {
-    background: #181818;
-    border: 1px solid #3a3a3a;
+  min-width: 74px;
+  height: 24px;
+  background: var(--bg-input);
+  border: 1px solid rgba(73, 96, 110, 0.45);
     color: var(--text-primary);
-    font-size: 0.6rem;
-    padding: 2px 4px;
-    border-radius: 1px;
+  font-size: 0.62rem;
+  padding: 2px 6px;
+  border-radius: 8px;
     cursor: pointer;
     font-family: var(--font-mono);
 }
 .tick-select:focus { outline: none; border-color: var(--accent-primary); }
 
-/* Connection status block */
 .conn-block {
     display: flex;
     align-items: center;
-    gap: 5px;
-    padding: 2px 7px;
-    border: 1px solid #3a3a3a;
-    border-radius: 1px;
-    background: #1e1e1e;
+  gap: 8px;
+  padding: 6px 10px;
+  border: 1px solid rgba(73, 96, 110, 0.45);
+  border-radius: 12px;
+  background: linear-gradient(180deg, rgba(20, 29, 37, 0.98) 0%, rgba(13, 19, 25, 0.98) 100%);
     flex-shrink: 0;
 }
 .conn-sq {
-    width: 6px;
-    height: 6px;
-    border-radius: 1px;
+  width: 8px;
+  height: 8px;
+  border-radius: 2px;
     flex-shrink: 0;
 }
 .conn-block.ok .conn-sq { background: var(--accent-success); }
 .conn-block.err .conn-sq { background: var(--accent-danger); animation: pulse-sq 1s infinite; }
 @keyframes pulse-sq { 0%, 100% { opacity: 1; } 50% { opacity: 0.2; } }
 
+.conn-copy {
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+}
+
+.conn-label {
+  font-size: 0.4rem;
+  color: var(--text-faint);
+  letter-spacing: 0.18em;
+  text-transform: uppercase;
+}
+
 .conn-text {
-    font-size: 0.58rem;
+  font-size: 0.6rem;
     font-weight: 700;
-    letter-spacing: 0.06em;
+  letter-spacing: 0.1em;
 }
 .conn-block.ok .conn-text { color: var(--accent-success); }
 .conn-block.err .conn-text { color: var(--accent-danger); }
+
+@media (max-width: 1500px) {
+  .header-meta {
+    display: none;
+  }
+}
+
+@media (max-width: 1100px) {
+  .divider,
+  .spacer {
+    display: none;
+  }
+
+  .step-name {
+    max-width: 220px;
+  }
+}
 </style>

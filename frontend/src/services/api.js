@@ -164,27 +164,86 @@ export async function updateModelConfig(partial) {
 }
 
 export async function applyPendingConfig() {
-    try {
-        const res = await fetch('/api/model/config/apply', { method: 'POST' })
-        if (!res.ok) {
-            const data = await res.json()
-            throw new Error(data.error || 'Failed to apply config')
-        }
-        return await res.json()
-    } catch (e) {
-        console.error(e)
-        return null
+    const res = await fetch('/api/model/config/apply', { method: 'POST' })
+    if (!res.ok) {
+        await throwApiError(res, 'Failed to apply config')
     }
+    return await res.json()
 }
 
 export async function discardPendingConfig() {
+    const res = await fetch('/api/model/config/discard', { method: 'POST' })
+    if (!res.ok) {
+        await throwApiError(res, 'Failed to discard config changes')
+    }
+    return await res.json()
+}
+
+// ---- Sensor Registry / CRUD ----
+
+export async function fetchSensorRegistry() {
     try {
-        const res = await fetch('/api/model/config/discard', { method: 'POST' })
+        const res = await fetch('/api/sensors/registry')
         return await res.json()
     } catch (e) {
-        console.error(e)
-        return null
+        console.error('Failed to fetch sensor registry:', e)
+        return {
+            sensors: [],
+            suppressed_core_sensors: [],
+            variables: [],
+            config_pending: false,
+            active_file: '',
+        }
     }
+}
+
+async function throwApiError(res, fallbackMessage) {
+    const data = await res.json().catch(() => ({}))
+    const err = new Error(data.error || fallbackMessage)
+    err.details = data
+    throw err
+}
+
+export async function createModeledSensorDefinition(sensor) {
+    const res = await fetch('/api/sensors/modeled', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(sensor),
+    })
+    if (!res.ok) {
+        await throwApiError(res, 'Failed to create modeled sensor')
+    }
+    return await res.json()
+}
+
+export async function deleteModeledSensorDefinition(tag) {
+    const res = await fetch(`/api/sensors/modeled/${encodeURIComponent(tag)}`, {
+        method: 'DELETE',
+    })
+    if (!res.ok) {
+        await throwApiError(res, 'Failed to delete modeled sensor')
+    }
+    return await res.json()
+}
+
+export async function suppressCoreSensorDefinition(sensorId) {
+    const res = await fetch(`/api/sensors/core/${encodeURIComponent(sensorId)}/suppress`, {
+        method: 'POST',
+    })
+    if (!res.ok) {
+        await throwApiError(res, 'Failed to suppress core sensor')
+    }
+    return await res.json()
+}
+
+export async function restoreCoreSensorDefinition(sensorId) {
+    const res = await fetch(`/api/sensors/core/${encodeURIComponent(sensorId)}/restore`, {
+        method: 'POST',
+    })
+    if (!res.ok) {
+        await throwApiError(res, 'Failed to restore core sensor')
+    }
+    return await res.json()
 }
 
 // ---- OPC Tool Integration ----

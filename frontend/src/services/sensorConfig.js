@@ -1,33 +1,131 @@
 import { reactive } from 'vue'
 
+import {
+    applyPendingConfig,
+    createModeledSensorDefinition,
+    deleteModeledSensorDefinition,
+    discardPendingConfig,
+    fetchSensorRegistry,
+    restoreCoreSensorDefinition,
+    suppressCoreSensorDefinition,
+} from './api'
+import { clearTopologyCache } from '../config/pidTopology'
+
 const STORAGE_KEY = 'reactor_sensor_config'
 const MAX_SPARKLINE_POINTS = 60
 const DEFAULT_ENABLED = ['temperature', 'pressure', 'conversion']
 
 export const sensorConfig = reactive({
     availableNodes: [],
+    sensorRegistry: [],
+    suppressedCoreSensors: [],
+    sensorVariables: [],
     enabledSensorIds: [],
     sensorSettings: {},
     sparklineData: {},
     activeAlarms: [],
-    alarmState: {},       // tracks which sensors are currently in alarm (for hysteresis)
+    alarmState: {},
     showManager: false,
     initialized: false,
 })
 
+function buildDefaultSettings(node) {
+    return {
+        alias: '',
+        color: node?.default_color || '#94a3b8',
+        icon: node?.default_icon || '?',
+        alarmHigh: null,
+        alarmLow: null,
+    }
+}
+
+function pruneRemovedSensorState(activeIds) {
+    let dirty = false
+
+    const nextEnabled = sensorConfig.enabledSensorIds.filter(id => activeIds.has(id))
+    if (nextEnabled.length !== sensorConfig.enabledSensorIds.length) {
+        sensorConfig.enabledSensorIds = nextEnabled
+        dirty = true
+    }
+
+    for (const id of Object.keys(sensorConfig.sensorSettings)) {
+        if (activeIds.has(id)) continue
+        delete sensorConfig.sensorSettings[id]
+        delete sensorConfig.sparklineData[id]
+        delete sensorConfig.alarmState[id]
+        sensorConfig.activeAlarms = sensorConfig.activeAlarms.filter(alarm => alarm.id !== id)
+        dirty = true
+    }
+
+    return dirty
+}
+
+function ensureDefaultsForActiveNodes() {
+    let dirty = false
+    for (const node of sensorConfig.availableNodes) {
+        if (!sensorConfig.sensorSettings[node.id]) {
+            sensorConfig.sensorSettings[node.id] = buildDefaultSettings(node)
+            dirty = true
+        }
+    }
+    return dirty
+}
+
+function reconcileLocalState() {
+    const activeIds = new Set(sensorConfig.availableNodes.map(node => node.id))
+    if (activeIds.size === 0) return
+
+    let dirty = pruneRemovedSensorState(activeIds)
+    dirty = ensureDefaultsForActiveNodes() || dirty
+
+    if (!sensorConfig.enabledSensorIds.length) {
+        const defaults = DEFAULT_ENABLED.filter(id => activeIds.has(id))
+        if (defaults.length) {
+            sensorConfig.enabledSensorIds = defaults.slice()
+            dirty = true
+        }
+    }
+
+    if (dirty) saveSensorConfig()
+}
+
+function notifyPidTopologyChanged() {
+    clearTopologyCache()
+    if (typeof window !== 'undefined') {
+        window.dispatchEvent(new CustomEvent('pid-topology-changed'))
+    }
+}
+
+export async function refreshSensorCatalog(options = {}) {
+    const { refreshTopology = false } = options
+
+    try {
+        const [connectionsRes, registryRes] = await Promise.all([
+            fetch('/api/connections').then(res => res.json()),
+            fetchSensorRegistry(),
+        ])
+        sensorConfig.availableNodes = connectionsRes.opc_ua?.node_catalog || []
+        sensorConfig.sensorRegistry = registryRes.sensors || []
+        sensorConfig.suppressedCoreSensors = registryRes.suppressed_core_sensors || []
+        sensorConfig.sensorVariables = registryRes.variables || []
+        reconcileLocalState()
+        if (refreshTopology) notifyPidTopologyChanged()
+        return registryRes
+    } catch (e) {
+        console.error('Failed to refresh sensor catalog:', e)
+        return {
+            sensors: sensorConfig.sensorRegistry,
+            suppressed_core_sensors: sensorConfig.suppressedCoreSensors,
+            variables: sensorConfig.sensorVariables,
+            config_pending: false,
+            active_file: '',
+        }
+    }
+}
+
 export async function initSensorConfig() {
     if (sensorConfig.initialized) return
 
-    // Fetch node catalog from backend
-    try {
-        const res = await fetch('/api/connections')
-        const data = await res.json()
-        sensorConfig.availableNodes = data.opc_ua?.node_catalog || []
-    } catch (e) {
-        console.error('Failed to fetch node catalog:', e)
-    }
-
-    // Load saved preferences from localStorage
     const saved = loadFromStorage()
     if (saved) {
         sensorConfig.enabledSensorIds = saved.enabledSensorIds || DEFAULT_ENABLED.slice()
@@ -36,20 +134,14 @@ export async function initSensorConfig() {
         sensorConfig.enabledSensorIds = DEFAULT_ENABLED.slice()
     }
 
-    // Ensure defaults exist for each node
-    for (const node of sensorConfig.availableNodes) {
-        if (!sensorConfig.sensorSettings[node.id]) {
-            sensorConfig.sensorSettings[node.id] = {
-                alias: '',
-                color: node.default_color || '#94a3b8',
-                icon: node.default_icon || '?',
-                alarmHigh: null,
-                alarmLow: null,
-            }
-        }
-    }
-
+    await refreshSensorCatalog()
     sensorConfig.initialized = true
+}
+
+export function findSensorDefinition(id) {
+    return sensorConfig.sensorRegistry.find(sensor => sensor.id === id)
+        || sensorConfig.suppressedCoreSensors.find(sensor => sensor.id === id)
+        || null
 }
 
 export function toggleSensor(id) {
@@ -63,11 +155,58 @@ export function toggleSensor(id) {
 }
 
 export function updateSensorSetting(id, settings) {
+    const node = sensorConfig.availableNodes.find(entry => entry.id === id)
     if (!sensorConfig.sensorSettings[id]) {
-        sensorConfig.sensorSettings[id] = { alias: '', color: '#94a3b8', icon: '?', alarmHigh: null, alarmLow: null }
+        sensorConfig.sensorSettings[id] = buildDefaultSettings(node)
     }
     Object.assign(sensorConfig.sensorSettings[id], settings)
     saveSensorConfig()
+}
+
+export async function createModeledSensor(sensor) {
+    const result = await createModeledSensorDefinition(sensor)
+    await refreshSensorCatalog()
+
+    const sensorId = result?.sensor?.id
+    if (sensorId && !sensorConfig.enabledSensorIds.includes(sensorId)) {
+        sensorConfig.enabledSensorIds.push(sensorId)
+        saveSensorConfig()
+    }
+
+    return result
+}
+
+export async function removeSensorDefinition(sensor) {
+    if (!sensor) return null
+
+    const result = sensor.origin === 'core'
+        ? await suppressCoreSensorDefinition(sensor.id)
+        : await deleteModeledSensorDefinition(sensor.tag)
+
+    await refreshSensorCatalog()
+    return result
+}
+
+export async function restoreCoreSensor(sensorId) {
+    const result = await restoreCoreSensorDefinition(sensorId)
+    await refreshSensorCatalog()
+    return result
+}
+
+export async function applySensorConfigChanges() {
+    const result = await applyPendingConfig()
+    if (result) {
+        await refreshSensorCatalog({ refreshTopology: true })
+    }
+    return result
+}
+
+export async function discardSensorConfigChanges() {
+    const result = await discardPendingConfig()
+    if (result) {
+        await refreshSensorCatalog({ refreshTopology: true })
+    }
+    return result
 }
 
 export function pushSensorData(stateData) {
@@ -154,13 +293,7 @@ export function resetSensorConfig() {
     sensorConfig.activeAlarms = []
     sensorConfig.alarmState = {}
     for (const node of sensorConfig.availableNodes) {
-        sensorConfig.sensorSettings[node.id] = {
-            alias: '',
-            color: node.default_color || '#94a3b8',
-            icon: node.default_icon || '?',
-            alarmHigh: null,
-            alarmLow: null,
-        }
+        sensorConfig.sensorSettings[node.id] = buildDefaultSettings(node)
     }
     localStorage.removeItem(STORAGE_KEY)
 }

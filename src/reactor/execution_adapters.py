@@ -59,31 +59,74 @@ class SimulationCMAdapter(CMAdapter):
     def read_input(self, key: str) -> float | None:
         if not key:
             return None
-            
-        state = self._model.state
-        if hasattr(state, key):
-            return getattr(state, key)
 
-        if key.startswith("feed_rate_"):
-            species = key.replace("feed_rate_", "", 1)
+        aliases = {
+            "temperature": "temperature_K",
+            "temperature_k": "temperature_K",
+            "jacket_temperature": "jacket_temperature_K",
+            "jacket_temperature_k": "jacket_temperature_K",
+            "mass_total": "mass_total_kg",
+            "feed_component_a": "feed_rate_component_a",
+            "feed_component_b": "feed_rate_component_b",
+            "feed_solvent": "feed_rate_solvent",
+            "viscosity": "viscosity_Pas",
+        }
+        canonical_key = aliases.get(str(key).strip().lower(), key)
+
+        state = self._model.state
+        if canonical_key == "temperature_K":
+            return float(state.temperature)
+
+        if canonical_key == "jacket_temperature_K":
+            return float(state.jacket_temperature)
+
+        if canonical_key == "mass_total_kg":
+            return float(state.mass_total)
+
+        if canonical_key in {
+            "mass_component_a_kg",
+            "mass_component_b_kg",
+            "mass_product_kg",
+            "mass_solvent_kg",
+        }:
+            species = canonical_key.removeprefix("mass_").removesuffix("_kg")
+            return float(state.species_masses.get(species, 0.0))
+
+        if canonical_key == "viscosity_Pas":
+            try:
+                return float(self._model.viscosity)
+            except Exception:
+                return None
+
+        if canonical_key == "agitator_speed_rpm":
+            try:
+                return float(self._model._reactor_cfg.get("agitator_speed_rpm", 0.0))
+            except Exception:
+                return None
+
+        if hasattr(state, canonical_key):
+            return getattr(state, canonical_key)
+
+        if canonical_key.startswith("feed_rate_"):
+            species = canonical_key.replace("feed_rate_", "", 1)
             try:
                 return float(self._model.get_feed_rate(species))
             except Exception:
                 return None
 
-        if key == "fill_pct":
+        if canonical_key == "fill_pct":
             try:
                 return float(self._model.fill_pct)
             except Exception:
                 return None
 
-        if key == "volume_L":
+        if canonical_key == "volume_L":
             try:
                 return float(self._model.volume_L)
             except Exception:
                 return None
 
-        if key == "pressure_bar":
+        if canonical_key == "pressure_bar":
             try:
                 return float(self._model.pressure_bar)
             except Exception:

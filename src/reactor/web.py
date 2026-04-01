@@ -7,6 +7,7 @@ import copy
 import csv
 import glob
 import json
+import logging
 import math
 import os
 import re
@@ -26,6 +27,8 @@ from .config import ModelConfig, load_data_file
 from .playback import DataPackagePlayer
 from .procedure import load_procedure
 from .recipe import load_recipe, add_sensor_noise
+
+logger = logging.getLogger("reactor.web")
 
 if TYPE_CHECKING:
     from .controller import BatchController
@@ -98,6 +101,14 @@ class ConfigSelect(BaseModel):
 class ConfigUpdate(BaseModel):
     """Request body for updating model config values."""
     config: dict
+
+
+class ModeledSensorCreateRequest(BaseModel):
+    """Request body for adding a modeled sensor control module."""
+    tag: str
+    name: str
+    maps_to: str
+    unit: str = ""
 
 
 class OPCMappingRequest(BaseModel):
@@ -731,6 +742,15 @@ def create_app(
         "feed_a": "feed_rate_component_a",
         "feed_b": "feed_rate_component_b",
         "feed_solvent": "feed_rate_solvent",
+        "viscosity": "viscosity_Pas",
+        "viscosity_pas": "viscosity_Pas",
+        "mass_component_a": "mass_component_a_kg",
+        "mass_component_b": "mass_component_b_kg",
+        "mass_product": "mass_product_kg",
+        "mass_solvent": "mass_solvent_kg",
+        "volume": "volume_L",
+        "volume_l": "volume_L",
+        "agitator_speed": "agitator_speed_rpm",
     }
 
     _DEFAULT_CATEGORY_META = {
@@ -759,6 +779,46 @@ def create_app(
         "recipe_elapsed_s": "batch_elapsed",
     }
 
+    _CORE_SENSOR_NODES = [
+        {"id": "temperature", "name": "Temperature", "opc_path": "Sensors/Temperature_K", "maps_to": "temperature_K", "state_key": "temperature_K", "unit": "K", "category": "sensor", "data_type": "Double", "writable": False, "default_color": "#ef4444", "default_icon": "T"},
+        {"id": "pressure", "name": "Pressure", "opc_path": "Sensors/Pressure_bar", "maps_to": "pressure_bar", "state_key": "pressure_bar", "unit": "bar", "category": "sensor", "data_type": "Double", "writable": False, "default_color": "#a855f7", "default_icon": "P"},
+        {"id": "conversion", "name": "Conversion", "opc_path": "Sensors/Conversion", "maps_to": "conversion", "state_key": "conversion", "unit": "", "category": "sensor", "data_type": "Double", "writable": False, "default_color": "#22c55e", "default_icon": "X"},
+        {"id": "viscosity", "name": "Viscosity", "opc_path": "Sensors/Viscosity_Pas", "maps_to": "viscosity_Pas", "state_key": "viscosity_Pas", "unit": "Pa·s", "category": "sensor", "data_type": "Double", "writable": False, "default_color": "#f97316", "default_icon": "V"},
+        {"id": "mass_total", "name": "Total Mass", "opc_path": "Sensors/MassTotal_kg", "maps_to": "mass_total_kg", "state_key": "mass_total_kg", "unit": "kg", "category": "sensor", "data_type": "Double", "writable": False, "default_color": "#14b8a6", "default_icon": "M"},
+        {"id": "fill_level", "name": "Fill Level", "opc_path": "Sensors/Fill_pct", "maps_to": "fill_pct", "state_key": "fill_pct", "unit": "%", "category": "sensor", "data_type": "Double", "writable": False, "default_color": "#06b6d4", "default_icon": "L"},
+    ]
+
+    _AUXILIARY_CORE_NODES = [
+        {"id": "fsm_state", "name": "FSM State", "opc_path": "Status/FSM_State", "state_key": "phase_id", "unit": "", "category": "status", "data_type": "Int32", "writable": False, "default_color": "#3b82f6", "default_icon": "#"},
+        {"id": "fsm_state_name", "name": "FSM State Name", "opc_path": "Status/FSM_StateName", "state_key": "phase", "unit": "", "category": "status", "data_type": "String", "writable": False, "default_color": "#3b82f6", "default_icon": "S"},
+        {"id": "batch_elapsed", "name": "Batch Elapsed", "opc_path": "Status/BatchElapsed_s", "state_key": "recipe_elapsed_s", "unit": "s", "category": "status", "data_type": "Double", "writable": False, "default_color": "#3b82f6", "default_icon": "E"},
+        {"id": "recipe_command", "name": "Recipe Command", "opc_path": "Recipe/Command", "state_key": "", "unit": "", "category": "recipe", "data_type": "String", "writable": True, "default_color": "#64748b", "default_icon": "C"},
+        {"id": "recipe_name", "name": "Recipe Name", "opc_path": "Recipe/RecipeName", "state_key": "", "unit": "", "category": "recipe", "data_type": "String", "writable": True, "default_color": "#64748b", "default_icon": "R"},
+    ]
+
+    _SENSORABLE_VARIABLES = [
+        {"maps_to": "temperature_K", "state_key": "temperature_K", "label": "Reactor Temperature", "unit": "K"},
+        {"maps_to": "jacket_temperature_K", "state_key": "jacket_temperature_K", "label": "Jacket Temperature", "unit": "K"},
+        {"maps_to": "pressure_bar", "state_key": "pressure_bar", "label": "Reactor Pressure", "unit": "bar"},
+        {"maps_to": "conversion", "state_key": "conversion", "label": "Conversion", "unit": ""},
+        {"maps_to": "viscosity_Pas", "state_key": "viscosity_Pas", "label": "Viscosity", "unit": "Pa·s"},
+        {"maps_to": "mass_total_kg", "state_key": "mass_total_kg", "label": "Total Mass", "unit": "kg"},
+        {"maps_to": "mass_component_a_kg", "state_key": "mass_component_a_kg", "label": "Component A Mass", "unit": "kg"},
+        {"maps_to": "mass_component_b_kg", "state_key": "mass_component_b_kg", "label": "Component B Mass", "unit": "kg"},
+        {"maps_to": "mass_product_kg", "state_key": "mass_product_kg", "label": "Product Mass", "unit": "kg"},
+        {"maps_to": "mass_solvent_kg", "state_key": "mass_solvent_kg", "label": "Solvent Mass", "unit": "kg"},
+        {"maps_to": "volume_L", "state_key": "volume_L", "label": "Liquid Volume", "unit": "L"},
+        {"maps_to": "fill_pct", "state_key": "fill_pct", "label": "Fill Level", "unit": "%"},
+        {"maps_to": "feed_rate_component_a", "state_key": "feed_rate_component_a", "label": "Component A Feed Rate", "unit": "kg/s"},
+        {"maps_to": "feed_rate_component_b", "state_key": "feed_rate_component_b", "label": "Component B Feed Rate", "unit": "kg/s"},
+        {"maps_to": "feed_rate_solvent", "state_key": "feed_rate_solvent", "label": "Solvent Feed Rate", "unit": "kg/s"},
+        {"maps_to": "agitator_speed_rpm", "state_key": "agitator_speed_rpm", "label": "Agitator Speed", "unit": "rpm"},
+    ]
+    _SENSORABLE_VARIABLE_BY_KEY = {
+        entry["maps_to"]: entry
+        for entry in _SENSORABLE_VARIABLES
+    }
+
     def _slug(value: str) -> str:
         slug = re.sub(r"[^a-zA-Z0-9]+", "_", value.strip()).strip("_").lower()
         return slug or "node"
@@ -768,6 +828,9 @@ def create_app(
             return ""
         norm = key.strip()
         return _STATE_KEY_ALIAS.get(norm.lower(), norm)
+
+    def _normalize_sensor_signal_key(key: str) -> str:
+        return _normalize_state_key(key)
 
     def _cm_category(cm_type: str) -> str:
         cmt = (cm_type or "").strip().lower()
@@ -781,48 +844,141 @@ def create_app(
             return "agitator"
         return "actuator"
 
-    def _build_node_catalog() -> list[dict[str, Any]]:
-        core_nodes: list[dict[str, Any]] = [
-            {"id": "temperature", "name": "Temperature", "opc_path": "Sensors/Temperature_K", "state_key": "temperature_K", "unit": "K", "category": "sensor", "data_type": "Double", "writable": False, "default_color": "#ef4444", "default_icon": "T"},
-            {"id": "pressure", "name": "Pressure", "opc_path": "Sensors/Pressure_bar", "state_key": "pressure_bar", "unit": "bar", "category": "sensor", "data_type": "Double", "writable": False, "default_color": "#a855f7", "default_icon": "P"},
-            {"id": "conversion", "name": "Conversion", "opc_path": "Sensors/Conversion", "state_key": "conversion", "unit": "", "category": "sensor", "data_type": "Double", "writable": False, "default_color": "#22c55e", "default_icon": "X"},
-            {"id": "viscosity", "name": "Viscosity", "opc_path": "Sensors/Viscosity_Pas", "state_key": "viscosity_Pas", "unit": "Pa·s", "category": "sensor", "data_type": "Double", "writable": False, "default_color": "#f97316", "default_icon": "V"},
-            {"id": "mass_total", "name": "Total Mass", "opc_path": "Sensors/MassTotal_kg", "state_key": "mass_total_kg", "unit": "kg", "category": "sensor", "data_type": "Double", "writable": False, "default_color": "#14b8a6", "default_icon": "M"},
-            {"id": "fill_level", "name": "Fill Level", "opc_path": "Sensors/Fill_pct", "state_key": "fill_pct", "unit": "%", "category": "sensor", "data_type": "Double", "writable": False, "default_color": "#06b6d4", "default_icon": "L"},
-            {"id": "fsm_state", "name": "FSM State", "opc_path": "Status/FSM_State", "state_key": "phase_id", "unit": "", "category": "status", "data_type": "Int32", "writable": False, "default_color": "#3b82f6", "default_icon": "#"},
-            {"id": "fsm_state_name", "name": "FSM State Name", "opc_path": "Status/FSM_StateName", "state_key": "phase", "unit": "", "category": "status", "data_type": "String", "writable": False, "default_color": "#3b82f6", "default_icon": "S"},
-            {"id": "batch_elapsed", "name": "Batch Elapsed", "opc_path": "Status/BatchElapsed_s", "state_key": "recipe_elapsed_s", "unit": "s", "category": "status", "data_type": "Double", "writable": False, "default_color": "#3b82f6", "default_icon": "E"},
-            {"id": "recipe_command", "name": "Recipe Command", "opc_path": "Recipe/Command", "state_key": "", "unit": "", "category": "recipe", "data_type": "String", "writable": True, "default_color": "#64748b", "default_icon": "C"},
-            {"id": "recipe_name", "name": "Recipe Name", "opc_path": "Recipe/RecipeName", "state_key": "", "unit": "", "category": "recipe", "data_type": "String", "writable": True, "default_color": "#64748b", "default_icon": "R"},
-        ]
+    def _next_unique_id(base_id: str, seen_ids: set[str]) -> str:
+        unique_id = base_id
+        suffix = 2
+        while unique_id in seen_ids:
+            unique_id = f"{base_id}_{suffix}"
+            suffix += 1
+        seen_ids.add(unique_id)
+        return unique_id
 
-        raw_cfg = getattr(getattr(model, "_cfg", None), "raw", {})
+    def _get_effective_config_raw() -> dict[str, Any]:
+        base = copy.deepcopy(sim_state.get("base_config_raw", {}) or {})
+        pending = sim_state.get("pending_config")
+        if pending:
+            return _deep_merge(base, pending)
+        return base
+
+    def _get_effective_equipment_cfg() -> dict[str, Any]:
+        raw_cfg = _get_effective_config_raw()
         equipment_cfg = raw_cfg.get("equipment", {}) if isinstance(raw_cfg, dict) else {}
-        cm_cfgs = equipment_cfg.get("control_modules", []) if isinstance(equipment_cfg, dict) else []
+        return equipment_cfg if isinstance(equipment_cfg, dict) else {}
 
-        dynamic_nodes: list[dict[str, Any]] = []
+    def _stage_equipment_cfg(equipment_cfg: dict[str, Any]) -> None:
+        partial = {"equipment": copy.deepcopy(equipment_cfg)}
+        current_pending = sim_state.get("pending_config") or {}
+        next_pending = _deep_merge(current_pending, partial)
+        base = copy.deepcopy(sim_state.get("base_config_raw", {}) or {})
+        sim_state["pending_config"] = None if _deep_merge(base, next_pending) == base else next_pending
+
+    def _get_suppressed_core_ids(equipment_cfg: dict[str, Any]) -> set[str]:
+        sensor_catalog = equipment_cfg.get("sensor_catalog", {}) if isinstance(equipment_cfg, dict) else {}
+        if not isinstance(sensor_catalog, dict):
+            return set()
+        suppressed = sensor_catalog.get("suppressed_core_ids", [])
+        if not isinstance(suppressed, list):
+            return set()
+        return {
+            str(sensor_id).strip()
+            for sensor_id in suppressed
+            if str(sensor_id).strip()
+        }
+
+    def _build_sensor_registry_lists() -> tuple[list[dict[str, Any]], list[dict[str, Any]]]:
+        equipment_cfg = _get_effective_equipment_cfg()
+        suppressed_core_ids = _get_suppressed_core_ids(equipment_cfg)
+        active_core: list[dict[str, Any]] = []
+        suppressed_core: list[dict[str, Any]] = []
+        modeled: list[dict[str, Any]] = []
+        seen_ids: set[str] = set()
+
+        for core in _CORE_SENSOR_NODES:
+            sensor_id = _next_unique_id(str(core["id"]), seen_ids)
+            entry = {
+                **core,
+                "id": sensor_id,
+                "origin": "core",
+                "deletable": False,
+                "delete_mode": "suppress",
+                "source_mode": "SIM",
+                "suppressed": core["id"] in suppressed_core_ids,
+            }
+            if entry["suppressed"]:
+                suppressed_core.append(entry)
+            else:
+                active_core.append(entry)
+
+        cm_cfgs = equipment_cfg.get("control_modules", []) if isinstance(equipment_cfg, dict) else []
         if isinstance(cm_cfgs, list):
             for cm in cm_cfgs:
                 if not isinstance(cm, dict):
                     continue
+
+                tag = str(cm.get("tag", "")).strip()
+                if not tag:
+                    continue
+
+                cm_type = str(cm.get("type", "")).strip().lower()
+                if _cm_category(cm_type) != "sensor":
+                    continue
+
+                meta = _DEFAULT_CATEGORY_META["sensor"]
+                maps_to = _normalize_sensor_signal_key(str(cm.get("maps_to", "")).strip())
+                modeled.append({
+                    "id": _next_unique_id(f"cm_{_slug(tag)}", seen_ids),
+                    "name": str(cm.get("name", tag)),
+                    "opc_path": f"Equipment/{tag}/PV",
+                    "maps_to": maps_to,
+                    "state_key": maps_to,
+                    "unit": str(cm.get("unit", "")),
+                    "category": "sensor",
+                    "data_type": "Double",
+                    "writable": False,
+                    "default_color": str(meta["color"]),
+                    "default_icon": str(meta["icon"]),
+                    "tag": tag,
+                    "cm_type": cm_type,
+                    "origin": "modeled",
+                    "deletable": True,
+                    "delete_mode": "delete",
+                    "source_mode": "SIM",
+                    "suppressed": False,
+                })
+
+        modeled.sort(key=lambda node: (str(node.get("tag", "")).upper(), str(node.get("name", "")).upper()))
+        suppressed_core.sort(key=lambda node: str(node.get("name", "")).upper())
+        return [*active_core, *modeled], suppressed_core
+
+    def _build_non_sensor_control_nodes() -> list[dict[str, Any]]:
+        equipment_cfg = _get_effective_equipment_cfg()
+        cm_cfgs = equipment_cfg.get("control_modules", []) if isinstance(equipment_cfg, dict) else []
+        dynamic_nodes: list[dict[str, Any]] = []
+
+        if isinstance(cm_cfgs, list):
+            for cm in cm_cfgs:
+                if not isinstance(cm, dict):
+                    continue
+
                 tag = str(cm.get("tag", "")).strip()
                 if not tag:
                     continue
 
                 cm_type = str(cm.get("type", "")).strip().lower()
                 category = _cm_category(cm_type)
-                maps_to = _normalize_state_key(str(cm.get("maps_to", "")).strip())
+                if category == "sensor":
+                    continue
+
+                maps_to = _normalize_sensor_signal_key(str(cm.get("maps_to", "")).strip())
                 canonical_id = _KNOWN_ID_BY_STATE.get(maps_to, _slug(tag))
                 meta = _DEFAULT_CATEGORY_META.get(category, _DEFAULT_CATEGORY_META["actuator"])
-
-                data_type = "Double"
-                if category in {"status", "recipe"}:
-                    data_type = "String"
+                data_type = "String" if category in {"status", "recipe"} else "Double"
 
                 dynamic_nodes.append({
                     "id": canonical_id,
                     "name": str(cm.get("name", tag)),
                     "opc_path": f"Equipment/{tag}/PV",
+                    "maps_to": maps_to,
                     "state_key": maps_to,
                     "unit": str(cm.get("unit", "")),
                     "category": category,
@@ -834,24 +990,284 @@ def create_app(
                     "cm_type": cm_type,
                 })
 
+        return dynamic_nodes
+
+    def _build_sensor_registry_payload() -> dict[str, Any]:
+        active_sensors, suppressed_sensors = _build_sensor_registry_lists()
+        return {
+            "sensors": active_sensors,
+            "suppressed_core_sensors": suppressed_sensors,
+            "variables": [dict(entry) for entry in _SENSORABLE_VARIABLES],
+            "config_pending": sim_state.get("pending_config") is not None,
+            "active_file": sim_state.get("active_config_file", ""),
+        }
+
+    def _build_node_catalog() -> list[dict[str, Any]]:
+        active_sensors, _ = _build_sensor_registry_lists()
         merged_nodes: list[dict[str, Any]] = []
         seen_ids: set[str] = set()
 
-        for node in [*core_nodes, *dynamic_nodes]:
+        for node in [*active_sensors, *_AUXILIARY_CORE_NODES, *_build_non_sensor_control_nodes()]:
             node_id = str(node.get("id", "")).strip()
             if not node_id:
                 continue
-            unique_id = node_id
-            suffix = 2
-            while unique_id in seen_ids:
-                unique_id = f"{node_id}_{suffix}"
-                suffix += 1
-            if unique_id != node_id:
-                node = {**node, "id": unique_id}
-            merged_nodes.append(node)
-            seen_ids.add(unique_id)
+            unique_id = _next_unique_id(node_id, seen_ids)
+            merged_nodes.append(node if unique_id == node_id else {**node, "id": unique_id})
 
         return merged_nodes
+
+    def _match_sensor_tag_in_text(text: Any, sensor_tag: str) -> bool:
+        if not isinstance(text, str):
+            return False
+        pattern = re.compile(rf"(?<![A-Z0-9]){re.escape(sensor_tag.upper())}(?![A-Z0-9])")
+        return bool(pattern.search(text.upper()))
+
+    def _find_sensor_dependencies(equipment_cfg: dict[str, Any], sensor_tag: str) -> list[dict[str, str]]:
+        tag_upper = str(sensor_tag).strip().upper()
+        dependencies: list[dict[str, str]] = []
+        seen: set[tuple[str, str, str]] = set()
+
+        def add_dependency(section: str, path: str, message: str) -> None:
+            key = (section, path, message)
+            if key in seen:
+                return
+            seen.add(key)
+            dependencies.append({
+                "section": section,
+                "path": path,
+                "message": message,
+            })
+
+        equipment_modules = equipment_cfg.get("equipment_modules", []) if isinstance(equipment_cfg, dict) else []
+        if isinstance(equipment_modules, list):
+            for em_idx, em_cfg in enumerate(equipment_modules):
+                if not isinstance(em_cfg, dict):
+                    continue
+
+                em_tag = str(em_cfg.get("tag", f"equipment_modules[{em_idx}]"))
+                cms = em_cfg.get("cms", [])
+                if isinstance(cms, list) and any(str(cm).strip().upper() == tag_upper for cm in cms):
+                    add_dependency(
+                        "equipment_modules.cms",
+                        f"equipment_modules[{em_idx}].cms",
+                        f"{em_tag} references {sensor_tag} in its CM list.",
+                    )
+
+                modes = em_cfg.get("modes", [])
+                if not isinstance(modes, list):
+                    continue
+
+                for mode_idx, mode_cfg in enumerate(modes):
+                    if not isinstance(mode_cfg, dict):
+                        continue
+
+                    mode_name = str(mode_cfg.get("name", f"modes[{mode_idx}]"))
+                    for field_name in ("preconditions", "postconditions"):
+                        checks = mode_cfg.get(field_name, [])
+                        if not isinstance(checks, list):
+                            continue
+                        for check_idx, check in enumerate(checks):
+                            if _match_sensor_tag_in_text(check, tag_upper):
+                                add_dependency(
+                                    f"equipment_modules.{field_name}",
+                                    f"equipment_modules[{em_idx}].modes[{mode_idx}].{field_name}[{check_idx}]",
+                                    f"{em_tag}:{mode_name} {field_name[:-1]} references {sensor_tag}.",
+                                )
+
+                    steps = mode_cfg.get("steps", [])
+                    if not isinstance(steps, list):
+                        continue
+                    for step_idx, step_cfg in enumerate(steps):
+                        if not isinstance(step_cfg, dict):
+                            continue
+                        step_name = str(step_cfg.get("name", f"steps[{step_idx}]"))
+                        for field_name in ("action", "check"):
+                            value = step_cfg.get(field_name)
+                            if _match_sensor_tag_in_text(value, tag_upper):
+                                add_dependency(
+                                    f"equipment_modules.steps.{field_name}",
+                                    f"equipment_modules[{em_idx}].modes[{mode_idx}].steps[{step_idx}].{field_name}",
+                                    f"{em_tag}:{mode_name}:{step_name} {field_name} references {sensor_tag}.",
+                                )
+
+        pid_cfg = equipment_cfg.get("pid", {}) if isinstance(equipment_cfg, dict) else {}
+        em_roles = pid_cfg.get("em_roles", {}) if isinstance(pid_cfg, dict) else {}
+        if isinstance(em_roles, dict):
+            for em_tag, role_cfg in em_roles.items():
+                if not isinstance(role_cfg, dict):
+                    continue
+
+                feed_lines = role_cfg.get("feed_lines", [])
+                if isinstance(feed_lines, list):
+                    for feed_idx, feed_cfg in enumerate(feed_lines):
+                        if not isinstance(feed_cfg, dict):
+                            continue
+                        cms = feed_cfg.get("cms", [])
+                        if isinstance(cms, list) and any(str(cm).strip().upper() == tag_upper for cm in cms):
+                            add_dependency(
+                                "equipment.pid.feed_lines",
+                                f"equipment.pid.em_roles.{em_tag}.feed_lines[{feed_idx}].cms",
+                                f"P&ID feed line {em_tag}[{feed_idx}] references {sensor_tag}.",
+                            )
+
+                for key_name in ("side_instruments", "instruments"):
+                    instruments = role_cfg.get(key_name, [])
+                    if not isinstance(instruments, list):
+                        continue
+                    for inst_idx, instrument_cfg in enumerate(instruments):
+                        if not isinstance(instrument_cfg, dict):
+                            continue
+                        if str(instrument_cfg.get("tag", "")).strip().upper() == tag_upper:
+                            add_dependency(
+                                f"equipment.pid.{key_name}",
+                                f"equipment.pid.em_roles.{em_tag}.{key_name}[{inst_idx}]",
+                                f"P&ID {key_name.replace('_', ' ')} entry {em_tag}[{inst_idx}] references {sensor_tag}.",
+                            )
+
+        def scan_nested(value: Any, path: str) -> None:
+            if isinstance(value, dict):
+                for key, child in value.items():
+                    scan_nested(child, f"{path}.{key}" if path else str(key))
+            elif isinstance(value, list):
+                for idx, child in enumerate(value):
+                    scan_nested(child, f"{path}[{idx}]")
+            elif _match_sensor_tag_in_text(value, tag_upper):
+                add_dependency(
+                    "equipment.interlocks",
+                    path,
+                    f"Interlock configuration references {sensor_tag}.",
+                )
+
+        interlocks = equipment_cfg.get("interlocks", {}) if isinstance(equipment_cfg, dict) else {}
+        scan_nested(interlocks, "equipment.interlocks")
+        return dependencies
+
+    @app.get("/api/sensors/registry")
+    async def get_sensor_registry():
+        """Return modeled/core sensor definitions plus pending config metadata."""
+        return JSONResponse(_build_sensor_registry_payload())
+
+    @app.post("/api/sensors/modeled")
+    async def create_modeled_sensor(request: ModeledSensorCreateRequest):
+        """Stage a new modeled sensor CM in the pending config."""
+        tag = str(request.tag).strip().upper()
+        name = str(request.name).strip()
+        maps_to = _normalize_sensor_signal_key(request.maps_to)
+        unit = str(request.unit).strip()
+
+        if not tag or not re.fullmatch(r"[A-Za-z][A-Za-z0-9-]{1,31}", tag):
+            return JSONResponse({"error": "Sensor tag must use letters, numbers, and hyphens only."}, status_code=400)
+        if not name:
+            return JSONResponse({"error": "Sensor name is required."}, status_code=400)
+        variable_meta = _SENSORABLE_VARIABLE_BY_KEY.get(maps_to)
+        if variable_meta is None:
+            return JSONResponse({"error": f"Unsupported sensor variable: {request.maps_to}"}, status_code=400)
+
+        equipment_cfg = copy.deepcopy(_get_effective_equipment_cfg())
+        control_modules = equipment_cfg.setdefault("control_modules", [])
+        if not isinstance(control_modules, list):
+            return JSONResponse({"error": "equipment.control_modules must be a list."}, status_code=400)
+
+        if any(str(cm.get("tag", "")).strip().upper() == tag for cm in control_modules if isinstance(cm, dict)):
+            return JSONResponse({"error": f"Control module tag already exists: {tag}"}, status_code=409)
+
+        control_modules.append({
+            "tag": tag,
+            "type": "sensor",
+            "name": name,
+            "maps_to": maps_to,
+            "unit": unit or str(variable_meta.get("unit", "")),
+        })
+        _stage_equipment_cfg(equipment_cfg)
+
+        sensor = next((entry for entry in _build_sensor_registry_payload()["sensors"] if entry.get("tag") == tag), None)
+        return JSONResponse({
+            "status": "ok",
+            "sensor": sensor,
+            "config_pending": sim_state.get("pending_config") is not None,
+        })
+
+    @app.delete("/api/sensors/modeled/{sensor_tag}")
+    async def delete_modeled_sensor(sensor_tag: str):
+        """Stage deletion of a modeled sensor CM if it has no linked dependencies."""
+        tag_upper = str(sensor_tag).strip().upper()
+        equipment_cfg = copy.deepcopy(_get_effective_equipment_cfg())
+        control_modules = equipment_cfg.get("control_modules", [])
+        if not isinstance(control_modules, list):
+            return JSONResponse({"error": "equipment.control_modules must be a list."}, status_code=400)
+
+        sensor_idx = None
+        sensor_cm = None
+        for idx, cm in enumerate(control_modules):
+            if not isinstance(cm, dict):
+                continue
+            if str(cm.get("tag", "")).strip().upper() != tag_upper:
+                continue
+            if str(cm.get("type", "")).strip().lower() != "sensor":
+                return JSONResponse({"error": f"{sensor_tag} is not a modeled sensor."}, status_code=400)
+            sensor_idx = idx
+            sensor_cm = cm
+            break
+
+        if sensor_idx is None or sensor_cm is None:
+            return JSONResponse({"error": f"Modeled sensor not found: {sensor_tag}"}, status_code=404)
+
+        dependencies = _find_sensor_dependencies(equipment_cfg, str(sensor_cm.get("tag", sensor_tag)).strip())
+        if dependencies:
+            return JSONResponse(
+                {
+                    "error": f"Cannot delete {sensor_tag} while it is still referenced.",
+                    "dependencies": dependencies,
+                },
+                status_code=409,
+            )
+
+        del control_modules[sensor_idx]
+        _stage_equipment_cfg(equipment_cfg)
+        return JSONResponse({
+            "status": "ok",
+            "deleted_tag": str(sensor_cm.get("tag", sensor_tag)).strip(),
+            "config_pending": sim_state.get("pending_config") is not None,
+        })
+
+    @app.post("/api/sensors/core/{sensor_id}/suppress")
+    async def suppress_core_sensor(sensor_id: str):
+        """Stage removal of a built-in core sensor from the visible catalog."""
+        if not any(str(node.get("id", "")) == sensor_id for node in _CORE_SENSOR_NODES):
+            return JSONResponse({"error": f"Unknown core sensor: {sensor_id}"}, status_code=404)
+
+        equipment_cfg = copy.deepcopy(_get_effective_equipment_cfg())
+        sensor_catalog = equipment_cfg.setdefault("sensor_catalog", {})
+        if not isinstance(sensor_catalog, dict):
+            return JSONResponse({"error": "equipment.sensor_catalog must be a mapping."}, status_code=400)
+
+        suppressed = _get_suppressed_core_ids(equipment_cfg)
+        suppressed.add(sensor_id)
+        sensor_catalog["suppressed_core_ids"] = sorted(suppressed)
+        _stage_equipment_cfg(equipment_cfg)
+        return JSONResponse({"status": "ok", "sensor_id": sensor_id, "config_pending": sim_state.get("pending_config") is not None})
+
+    @app.post("/api/sensors/core/{sensor_id}/restore")
+    async def restore_core_sensor(sensor_id: str):
+        """Stage restoration of a previously suppressed core sensor."""
+        if not any(str(node.get("id", "")) == sensor_id for node in _CORE_SENSOR_NODES):
+            return JSONResponse({"error": f"Unknown core sensor: {sensor_id}"}, status_code=404)
+
+        equipment_cfg = copy.deepcopy(_get_effective_equipment_cfg())
+        sensor_catalog = equipment_cfg.setdefault("sensor_catalog", {})
+        if not isinstance(sensor_catalog, dict):
+            return JSONResponse({"error": "equipment.sensor_catalog must be a mapping."}, status_code=400)
+
+        suppressed = _get_suppressed_core_ids(equipment_cfg)
+        suppressed.discard(sensor_id)
+        if suppressed:
+            sensor_catalog["suppressed_core_ids"] = sorted(suppressed)
+        else:
+            sensor_catalog.pop("suppressed_core_ids", None)
+            if not sensor_catalog:
+                equipment_cfg.pop("sensor_catalog", None)
+        _stage_equipment_cfg(equipment_cfg)
+        return JSONResponse({"status": "ok", "sensor_id": sensor_id, "config_pending": sim_state.get("pending_config") is not None})
 
     @app.get("/api/connections")
     async def get_connections():
@@ -947,6 +1363,21 @@ def create_app(
         {"kinetics", "reaction_network", "thermal", "reactor", "physics", "controller"}
     )
 
+    def _reinitialize_runtime_from_config(new_cfg: ModelConfig) -> None:
+        """Apply a validated model config to all runtime managers in place."""
+        model.reinitialize(new_cfg)
+        controller.reinitialize(model, new_cfg.controller)
+
+        equipment_cfg = new_cfg.equipment if new_cfg.has_equipment else {}
+        if em_manager is not None:
+            em_manager.reinitialize(equipment_cfg)
+        if alarm_manager is not None:
+            alarm_manager.reinitialize_from_equipment_config(equipment_cfg)
+            sim_state["alarm_summary"] = alarm_manager.to_dict()
+
+        if player:
+            player.reset()
+
     @app.get("/api/configs")
     async def list_configs():
         """Return list of available model config files (YAML and JSON)."""
@@ -1007,12 +1438,9 @@ def create_app(
 
         # Apply immediately (reinitialize model and controller)
         try:
-            model.reinitialize(new_cfg)
-            controller.reinitialize(model, new_cfg.controller)
+            _reinitialize_runtime_from_config(new_cfg)
         except Exception as e:
             return JSONResponse({"error": f"Config is not a valid reactor config: {e}"}, status_code=400)
-        if player:
-            player.reset()
 
         sim_state["base_config_raw"] = copy.deepcopy(new_cfg.raw)
         sim_state["active_config_file"] = str(config_path)
@@ -1066,10 +1494,7 @@ def create_app(
         merged = _deep_merge(base, pending)
         new_cfg = ModelConfig.from_dict(merged)
 
-        model.reinitialize(new_cfg)
-        controller.reinitialize(model, new_cfg.controller)
-        if player:
-            player.reset()
+        _reinitialize_runtime_from_config(new_cfg)
 
         sim_state["base_config_raw"] = merged
         sim_state["pending_config"] = None
@@ -1552,6 +1977,227 @@ def create_app(
             data = json.load(f)
         return JSONResponse(data)
 
+    # --- P&ID Topology (config-driven) ---
+
+    def _build_pid_topology() -> dict:
+        """Build P&ID node/edge graph from equipment.pid config section."""
+        equip = _get_effective_equipment_cfg()
+        pid_cfg = equip.get("pid")
+        if not pid_cfg:
+            return {"nodes": [], "edges": [], "version": None}
+
+        # Index control modules by tag for quick lookup
+        cm_index: dict[str, dict] = {}
+        for cm in equip.get("control_modules", []):
+            cm_index[cm["tag"]] = cm
+
+        nodes: list[dict] = []
+        edges: list[dict] = []
+
+        # 1. Structural nodes (reactor, product, etc.)
+        for sn in pid_cfg.get("structural_nodes", []):
+            nodes.append({
+                "id": sn["id"],
+                "type": sn["type"],
+                "data": {
+                    "label": sn.get("label", sn["id"]),
+                    "connectionRole": sn["type"],
+                },
+                "position_hint": {"zone": "center"},
+            })
+
+        # 2. Walk em_roles to generate nodes and edges
+        em_roles = pid_cfg.get("em_roles", {})
+        for em_tag, role_cfg in em_roles.items():
+            role = role_cfg.get("role", "")
+
+            if role == "feed_group":
+                for col_idx, fl in enumerate(role_cfg.get("feed_lines", [])):
+                    material = fl["material"]
+                    feed_id = f"feed_{material}"
+                    # Feed source node
+                    nodes.append({
+                        "id": feed_id,
+                        "type": "feed",
+                        "data": {
+                            "feedType": material,
+                            "label": fl.get("label", material),
+                            "rateKey": f"feed_rate_{material}",
+                            "actuator": f"feed_{material}",
+                            "connectionRole": "feed",
+                        },
+                        "position_hint": {"zone": "feed", "column": col_idx},
+                    })
+                    # CM nodes in this feed line
+                    prev_id = feed_id
+                    for rank, cm_tag in enumerate(fl.get("cms", [])):
+                        cm = cm_index.get(cm_tag, {})
+                        node_id = f"cm_{cm_tag}"
+                        nodes.append({
+                            "id": node_id,
+                            "type": "instrument",
+                            "data": {
+                                "tag": cm_tag,
+                                "name": cm.get("name", cm_tag),
+                                "valueKey": cm.get("maps_to", f"feed_rate_{material}"),
+                                "unit": cm.get("unit", ""),
+                                "connectionRole": "feed",
+                            },
+                            "position_hint": {"zone": "feed", "column": col_idx, "rank": rank + 1},
+                        })
+                        flow_key = f"feed_rate_{material}"
+                        edges.append({
+                            "id": f"{prev_id}-{node_id}",
+                            "source": prev_id,
+                            "target": node_id,
+                            "type": "pipe",
+                            "data": {"flowKey": flow_key},
+                        })
+                        prev_id = node_id
+                    # Connect last CM to reactor
+                    target_handle = fl.get("target_handle", "feed")
+                    edge = {
+                        "id": f"{prev_id}-reactor",
+                        "source": prev_id,
+                        "target": "reactor",
+                        "type": "pipe",
+                        "data": {"flowKey": f"feed_rate_{material}"},
+                    }
+                    if target_handle:
+                        edge["targetHandle"] = target_handle
+                    edges.append(edge)
+
+                # Side instruments attached to reactor
+                for si in role_cfg.get("side_instruments", []):
+                    cm = cm_index.get(si["tag"], {})
+                    node_id = f"cm_{si['tag']}"
+                    attach_to = si.get("attach_to", "reactor")
+                    attach_handle = si.get("attach_handle")
+                    hint = si.get("position_hint", "left")
+                    nodes.append({
+                        "id": node_id,
+                        "type": "instrument",
+                        "data": {
+                            "tag": si["tag"],
+                            "name": cm.get("name", si["tag"]),
+                            "valueKey": cm.get("maps_to", ""),
+                            "unit": cm.get("unit", ""),
+                            "connectionRole": "sensor",
+                            "attachSide": hint,
+                        },
+                        "position_hint": {"zone": "side", "attach_to": attach_to, "hint": hint},
+                    })
+                    if attach_to and attach_handle:
+                        edges.append({
+                            "id": f"{node_id}-{attach_to}",
+                            "source": node_id,
+                            "target": attach_to,
+                            "targetHandle": attach_handle,
+                            "type": "pipe",
+                            "data": {"noArrow": True, "signal": True},
+                        })
+
+            elif role == "drain_line":
+                prev_id = "reactor"
+                source_handle = role_cfg.get("source_handle", "product")
+                for rank, cm_tag in enumerate(role_cfg.get("cms", [])):
+                    cm = cm_index.get(cm_tag, {})
+                    node_id = f"cm_{cm_tag}"
+                    nodes.append({
+                        "id": node_id,
+                        "type": "instrument",
+                        "data": {
+                            "tag": cm_tag,
+                            "name": cm.get("name", cm_tag),
+                            "valueKey": cm.get("maps_to", "mass_total_kg"),
+                            "unit": cm.get("unit", ""),
+                            "connectionRole": "drain",
+                        },
+                        "position_hint": {"zone": "drain", "rank": rank},
+                    })
+                    edge = {
+                        "id": f"{prev_id}-{node_id}",
+                        "source": prev_id,
+                        "target": node_id,
+                        "type": "pipe",
+                        "data": {},
+                    }
+                    if prev_id == "reactor" and source_handle:
+                        edge["sourceHandle"] = source_handle
+                    edges.append(edge)
+                    prev_id = node_id
+                # Connect last to target node (product)
+                target = role_cfg.get("target_node", "product")
+                edges.append({
+                    "id": f"{prev_id}-{target}",
+                    "source": prev_id,
+                    "target": target,
+                    "type": "pipe",
+                    "data": {},
+                })
+
+            elif role in ("jacket", "agitator"):
+                sn = role_cfg.get("structural_node", {})
+                if sn:
+                    nodes.append({
+                        "id": sn["id"],
+                        "type": sn["type"],
+                        "data": {
+                            "label": sn.get("label", sn["id"]),
+                            "connectionRole": role,
+                        },
+                        "position_hint": {"zone": role},
+                    })
+                    attach_handle = role_cfg.get("attach_handle", role)
+                    no_arrow = role == "agitator"
+                    edge = {
+                        "id": f"{sn['id']}-reactor",
+                        "source": sn["id"],
+                        "target": "reactor",
+                        "type": "pipe",
+                        "data": {"noArrow": True} if no_arrow else {},
+                    }
+                    if attach_handle:
+                        edge["targetHandle"] = attach_handle
+                    edges.append(edge)
+
+            elif role == "side_instruments":
+                for inst in role_cfg.get("instruments", []):
+                    cm = cm_index.get(inst["tag"], {})
+                    node_id = f"cm_{inst['tag']}"
+                    attach_to = inst.get("attach_to", "reactor")
+                    attach_handle = inst.get("attach_handle")
+                    hint = inst.get("position_hint", "right")
+                    nodes.append({
+                        "id": node_id,
+                        "type": "instrument",
+                        "data": {
+                            "tag": inst["tag"],
+                            "name": cm.get("name", inst["tag"]),
+                            "valueKey": cm.get("maps_to", ""),
+                            "unit": cm.get("unit", ""),
+                            "connectionRole": "sensor" if attach_handle == "sensor" else "instrument",
+                            "attachSide": hint,
+                        },
+                        "position_hint": {"zone": "side", "attach_to": attach_to, "hint": hint},
+                    })
+                    if attach_to and attach_handle:
+                        edges.append({
+                            "id": f"{node_id}-{attach_to}",
+                            "source": node_id,
+                            "target": attach_to,
+                            "targetHandle": attach_handle,
+                            "type": "pipe",
+                            "data": {"noArrow": True, "signal": True},
+                        })
+
+        return {"nodes": nodes, "edges": edges, "version": "1.0"}
+
+    @app.get("/api/pid/topology")
+    async def get_pid_topology():
+        """Return config-driven P&ID node/edge graph."""
+        return JSONResponse(_build_pid_topology())
+
     # --- P&ID Layout Persistence ---
 
     pid_layout_file = project_root / "configs" / "pid_layout.json"
@@ -1583,6 +2229,41 @@ def create_app(
         try:
             if pid_layout_file.exists():
                 pid_layout_file.unlink()
+            return JSONResponse({"status": "ok"})
+        except Exception as exc:
+            return JSONResponse({"error": str(exc)}, status_code=500)
+
+    # --- P&ID Topology Overlay (user edits on top of config) ---
+
+    pid_overlay_file = project_root / "configs" / "pid_topology_overlay.json"
+
+    @app.get("/api/pid/overlay")
+    async def get_pid_overlay():
+        """Return P&ID topology overlay (user node/edge edits)."""
+        if pid_overlay_file.exists():
+            try:
+                return JSONResponse(json.loads(pid_overlay_file.read_text()))
+            except Exception:
+                return JSONResponse({})
+        return JSONResponse({})
+
+    @app.post("/api/pid/overlay")
+    async def save_pid_overlay(request: Request):
+        """Save P&ID topology overlay to file."""
+        try:
+            data = await request.json()
+            pid_overlay_file.parent.mkdir(parents=True, exist_ok=True)
+            pid_overlay_file.write_text(json.dumps(data, indent=2))
+            return JSONResponse({"status": "ok"})
+        except Exception as exc:
+            return JSONResponse({"error": str(exc)}, status_code=500)
+
+    @app.delete("/api/pid/overlay")
+    async def reset_pid_overlay():
+        """Delete P&ID topology overlay, reverting to pure config."""
+        try:
+            if pid_overlay_file.exists():
+                pid_overlay_file.unlink()
             return JSONResponse({"status": "ok"})
         except Exception as exc:
             return JSONResponse({"error": str(exc)}, status_code=500)

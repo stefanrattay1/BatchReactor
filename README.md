@@ -21,7 +21,7 @@ A batch reactor simulation built as a digital twin with OPC UA and web interface
   │                                                               │
   │   ┌──────────────────────────────────────────────────────┐    │
   │   │ Equipment Modules (EM)  — functional units           │    │
-  │   │   EM-FILL · EM-DRAIN · EM-TEMP · EM-AGIT · ...      │    │
+  │   │   EM-FILL · EM-DRAIN · EM-TEMP · EM-AGIT · ...       │    │
   │   │   mode transitions · interlocks · step sequences     │    │
   │   └──────────────────────────────────────────────────────┘    │
   │   ┌──────────────────────────────────────────────────────┐    │
@@ -46,8 +46,8 @@ A batch reactor simulation built as a digital twin with OPC UA and web interface
   │               │                               │               │
   │ ┌─────────────▼───────────┐ ┌─────────────────▼─────────────┐ │
   │ │   OPC Tool (separate)   │ │       Web Dashboard           │ │
-  │ │  REST API · Node Catalog│ │   Vue 3 · Vite · Chart.js    │ │
-  │ │  OPC UA Servers/Clients │ │   EM panels · P&ID · trends  │ │
+  │ │  REST API · Node Catalog│ │   Vue 3 · Vite · Chart.js     │ │
+  │ │  OPC UA Servers/Clients │ │   EM panels · P&ID · trends   │ │
   │ │       port 8001         │ │        port 8000              │ │
   │ └─────────────────────────┘ └───────────────────────────────┘ │
   └───────────────────────────────────────────────────────────────┘
@@ -131,28 +131,42 @@ IDLE -> CHARGING -> HEATING -> EXOTHERM -> COOLING -> DISCHARGING
 ### Installation
 
 ```bash
-# Clone and install
+# Clone and bootstrap on Linux/macOS
 git clone <repository-url>
 cd reactor
-python -m venv .venv
-source .venv/bin/activate  # Linux/Mac
-# .venv\Scripts\activate   # Windows
+./setup.sh
 
-pip install -e ".[dev]"
+# Bootstrap reactor + OPC Tool
+./setup.sh --with-opc-tool
 ```
 
 ### Setup Script and Requirements
 
-If you prefer a classic setup workflow, this project includes a minimal `setup.py`.
-Runtime dependencies are also pinned in `requirements.txt` for environments that
-do not use editable installs.
+The repository bootstrap flow is bash-based. The root `./setup.sh` script will:
+
+- install Python 3.11+ with a supported package manager when possible
+- create the local `.venv`
+- install the project in editable mode with development dependencies
+- optionally build the frontend and install IPOPT extensions
+
+For a reactor-only setup, `./setup.sh` is the preferred entrypoint. The lower-level
+scripts remain available at `./scripts/setup_reactor.sh` and `./scripts/setup_opc_tool.sh`.
+
+If you need a manual or Windows workflow, use the commands below instead. Runtime
+dependencies are also pinned in `requirements.txt` for environments that do not use
+editable installs.
 
 ```bash
+# Manual virtualenv setup
+python -m venv .venv
+source .venv/bin/activate  # Linux/Mac
+# .venv\Scripts\activate   # Windows
+
+# Editable install
+pip install -e ".[dev]"
+
 # Install runtime requirements only
 pip install -r requirements.txt
-
-# Optional legacy setup entry point
-python setup.py develop
 ```
 
 ### Installing IPOPT

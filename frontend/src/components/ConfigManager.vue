@@ -192,16 +192,24 @@ async function handleSelectConfig(filename) {
 
 // Apply pending changes
 async function handleApply() {
-    const result = await applyPendingConfig()
-    if (result) {
-        await loadConfig()
+    try {
+        const result = await applyPendingConfig()
+        if (result) {
+            await loadConfig()
+        }
+    } catch (error) {
+        alert(error?.message || 'Failed to apply config changes.')
     }
 }
 
 // Discard pending changes
 async function handleDiscard() {
-    await discardPendingConfig()
-    await loadConfig()
+    try {
+        await discardPendingConfig()
+        await loadConfig()
+    } catch (error) {
+        alert(error?.message || 'Failed to discard config changes.')
+    }
 }
 
 // Format value for display

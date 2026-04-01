@@ -81,6 +81,39 @@ export const CHART_CHANNELS = [
     },
 ]
 
+// Rotating palette for auto-generated channels
+const AUTO_COLORS = ['#14b8a6', '#ec4899', '#84cc16', '#e11d48', '#0ea5e9', '#d946ef', '#facc15', '#22d3ee']
+
+/**
+ * Build chart channels from sensor catalog nodes (e.g. from /api/connections).
+ * Merges with CHART_CHANNELS, skipping duplicates by stateKey.
+ *
+ * @param {object[]} sensorNodes - Nodes from sensorConfig.availableNodes
+ * @returns {object[]} Combined channel list (hardcoded + auto-generated)
+ */
+export function buildAllChannels(sensorNodes = []) {
+    const existingKeys = new Set(CHART_CHANNELS.map(ch => ch.stateKey).filter(Boolean))
+    const extra = []
+
+    for (const sensor of sensorNodes) {
+        const key = sensor.state_key || sensor.maps_to
+        if (!key || existingKeys.has(key)) continue
+        existingKeys.add(key)
+        extra.push({
+            id: `auto_${sensor.id || key}`,
+            label: sensor.name || key,
+            stateKey: key,
+            color: AUTO_COLORS[extra.length % AUTO_COLORS.length],
+            yAxis: 'right',
+            unit: sensor.unit || '',
+            default: false,
+            auto: true,
+        })
+    }
+
+    return [...CHART_CHANNELS, ...extra]
+}
+
 const STORAGE_KEY = 'reactor_chart_channels'
 
 export function loadActiveChannels() {
