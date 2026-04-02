@@ -112,13 +112,17 @@ function getPortChipTitle(handleId) {
         {{ convPct }}%
       </text>
 
-      <!-- Fill level bar (right side) -->
-      <rect x="236" y="22" width="6" height="174" rx="1"
-            fill="#10151a" stroke="#47545f" stroke-width="0.5"/>
-      <rect x="236" :y="22 + 174 - (fillPct * 174 / 100)" width="6"
-            :height="fillPct * 174 / 100" rx="1"
-            fill="#d3dce2" fill-opacity="0.78"/>
-      <text x="239" y="206" text-anchor="middle" fill="#8f9ca6" font-size="6">
+      <!-- Liquid surface line -->
+      <line v-if="fillPct > 2"
+            x1="17" :y1="15 + 190 - (fillPct * 190 / 100)"
+            x2="243" :y2="15 + 190 - (fillPct * 190 / 100)"
+            stroke="#c8d4db" stroke-width="0.8" stroke-opacity="0.35" />
+
+      <!-- Level readout (bottom-right, ISA-5.1 numeric indication) -->
+      <text x="234" y="193" text-anchor="end" fill="#7a8792"
+            font-size="5.5" font-weight="700" letter-spacing="0.1em">LEVEL</text>
+      <text x="234" y="204" text-anchor="end" fill="#c8d4db"
+            font-size="10" font-weight="700" font-family="'JetBrains Mono', monospace">
         {{ fillPct.toFixed(0) }}%
       </text>
 
@@ -126,9 +130,12 @@ function getPortChipTitle(handleId) {
       <line x1="130" y1="148" x2="130" y2="183" stroke="#66747f" stroke-width="2"/>
       <!-- Agitator blades -->
       <line x1="108" y1="173" x2="152" y2="178" stroke="#81909a" stroke-width="3" stroke-linecap="square"/>
-    </svg>
 
-    <div class="node-label">REACTOR VESSEL</div>
+      <!-- Node label — background rect masks the connecting pipe (standard P&ID drafting) -->
+      <rect x="72" y="207" width="116" height="11" fill="#0d1116" rx="1" />
+      <text x="130" y="215" text-anchor="middle" fill="#a6b1b8"
+            font-size="6.5" font-weight="700" letter-spacing="0.14em">REACTOR VESSEL</text>
+    </svg>
   </div>
 </template>
 
@@ -164,6 +171,9 @@ function getPortChipTitle(handleId) {
       color: var(--text-secondary);
       transform: translateX(-50%);
       pointer-events: none;
+      background: rgba(12, 17, 22, 0.92);
+      padding: 1px 4px;
+      border-radius: 2px;
 }
 
 .port-label-top {
@@ -191,13 +201,13 @@ function getPortChipTitle(handleId) {
 }
 
 .port-label-bottom {
-      bottom: 24px;
+      bottom: -14px;
       left: 50%;
 }
 
 .port-chip {
       position: absolute;
-      max-width: 74px;
+      max-width: 90px;
       padding: 2px 6px;
       border-radius: 999px;
       background: rgba(28, 35, 40, 0.96);
@@ -219,17 +229,18 @@ function getPortChipTitle(handleId) {
 }
 
 .port-chip-input {
-      max-width: 94px;
+      max-width: 100px;
 }
 
 .port-chip-left {
-      left: -78px;
+      right: calc(100% + 8px);
       top: 56%;
       transform: translateY(-50%);
 }
 
 .port-chip-right {
-      right: -76px;
+      left: calc(100% + 8px);
+      right: auto;
       transform: none;
 }
 
@@ -244,17 +255,9 @@ function getPortChipTitle(handleId) {
 }
 
 .port-chip-bottom {
-      bottom: 8px;
+      bottom: -30px;
       left: 50%;
       transform: translateX(-50%);
 }
 
-.node-label {
-    text-align: center;
-      font-size: 0.58rem;
-    font-weight: 700;
-      color: var(--text-secondary);
-      margin-top: 6px;
-      letter-spacing: 0.14em;
-}
 </style>

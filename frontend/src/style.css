@@ -138,8 +138,8 @@ textarea {
 }
 .vue-flow__edge-path { stroke: var(--line-idle); }
 .vue-flow__handle {
-    width: 7px;
-    height: 7px;
+    width: 5px;
+    height: 5px;
     background: var(--equip-border);
     border: 1px solid rgba(240, 248, 255, 0.12);
     border-radius: 2px;
@@ -169,7 +169,8 @@ textarea {
 .vue-flow__minimap-node { fill: rgba(111, 133, 146, 0.55) !important; }
 
 .pid-node-card {
-    width: 102px;
+    width: max-content;
+    min-width: 82px;
     min-height: 68px;
     background: var(--equip-bg);
     border: 1px solid rgba(92, 105, 115, 0.88);
@@ -213,9 +214,6 @@ textarea {
     color: var(--text-primary);
     letter-spacing: 0.04em;
     line-height: 1.25;
-    white-space: nowrap;
-    overflow: hidden;
-    text-overflow: ellipsis;
 }
 
 .pid-node-sub {
